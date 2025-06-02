@@ -39,6 +39,10 @@ dependencies:
   http:
   read_pdf_text:
   path_provider:
+  pdfx:
+  pdf:
+  flutter_tesseract_ocr:
+  image:
 
 
 
