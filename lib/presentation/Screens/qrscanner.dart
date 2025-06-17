@@ -6,6 +6,7 @@ import 'package:pdfx/pdfx.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
 import 'dart:io';
+import '../../Core/Core/Navigation/app_router.dart';
 import 'text_display.dart';
 import 'package:image/image.dart' as img;
 
@@ -57,18 +58,17 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         String url = scanData.code!;
         final pdfBytes = await _fetchPdf(url);
         final result = await _extractContentFromPdf(pdfBytes);
-        Navigator.pushReplacement(
+        Navigator.pushNamed(
           context,
-          MaterialPageRoute(
-            builder: (context) => TextDisplayScreen(
-              text: result.text,
-              images: result.images,
-              imageTexts: result.imageTexts,
-              profileDetections: result.profileDetections,
-              profileImages: result.profileImages,
-              extractedFields: result.extractedFields,
-            ),
-          ),
+          AppRoutes.textDisplay,
+          arguments: {
+            'text': result.text,
+            'images': result.images,
+            'imageTexts': result.imageTexts,
+            'profileDetections': result.profileDetections,
+            'profileImages': result.profileImages,
+            'extractedFields': result.extractedFields,
+          },
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

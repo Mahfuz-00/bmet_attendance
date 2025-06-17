@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:touch_attendence/Common/Common/Config/Theme/app_colors.dart';
 import 'package:touch_attendence/presentation/Screens/splash_screen.dart';
+
+import 'Core/Core/Navigation/app_router.dart';
 
 void main() {
   runApp(const TouchAttendanceApp());
@@ -11,12 +14,14 @@ class TouchAttendanceApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Touch Attendance',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primaryColor: AppColors.primary,
         useMaterial3: true,
       ),
-      home: const SplashScreen(),
+      initialRoute: AppRoutes.splashScreen, // Set the initial route
+      onGenerateRoute: AppRoutes.generateRoute, // Use AppRoutes for navigation
     );
   }
 }
