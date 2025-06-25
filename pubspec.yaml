@@ -43,6 +43,8 @@ dependencies:
   pdf:
   flutter_tesseract_ocr:
   image:
+  image_picker:
+  provider:
 
 
 

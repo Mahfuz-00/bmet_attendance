@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../../presentation/Screens/attendance_photo.dart';
 import '../../../presentation/Screens/log_in.dart';
 import '../../../presentation/Screens/qrscanner.dart';
 import '../../../presentation/Screens/splash_screen.dart';
@@ -10,6 +10,7 @@ class AppRoutes {
   static const String qrScanner = '/qr-scanner';
   static const String splashScreen = '/splash-screen';
   static const String textDisplay = '/text-display';
+  static const String attendancePhoto = '/attendance-photo'; // Fixed camelCase for consistency
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -20,18 +21,9 @@ class AppRoutes {
       case splashScreen:
         return MaterialPageRoute(builder: (_) => const SplashScreen());
       case textDisplay:
-      // Extract arguments from settings
-        final args = settings.arguments as Map<String, dynamic>?;
-        return MaterialPageRoute(
-          builder: (_) => TextDisplayScreen(
-            text: args?['text'] ?? '',
-            images: args?['images'] ?? [],
-            imageTexts: args?['imageTexts'] ?? [],
-            profileDetections: args?['profileDetections'] ?? [],
-            profileImages: args?['profileImages'] ?? [],
-            extractedFields: args?['extractedFields'] ?? {},
-          ),
-        );
+        return MaterialPageRoute(builder: (_) => const TextDisplayScreen());
+      case attendancePhoto:
+        return MaterialPageRoute(builder: (_) => const AttendancePhotoScreen());
       default:
         return MaterialPageRoute(
           builder: (_) => const Scaffold(

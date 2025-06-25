@@ -4,10 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:read_pdf_text/read_pdf_text.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'dart:io';
+import 'package:provider/provider.dart';
 import '../../Core/Core/Navigation/app_router.dart';
-import 'text_display.dart';
+import '../../Data/Models/labeled_images.dart';
+import '../State Management/attendance_data_provider.dart';
 import 'package:image/image.dart' as img;
 
 class QRScannerScreen extends StatefulWidget {
@@ -24,24 +27,33 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Scan QR Code')),
-      body: Stack(
-        children: [
-          QRView(
-            key: qrKey,
-            onQRViewCreated: _onQRViewCreated,
-            overlay: QrScannerOverlayShape(
-              borderColor: Colors.blue,
-              borderRadius: 10,
-              borderLength: 30,
-              borderWidth: 10,
-              cutOutSize: 300,
+    return WillPopScope(
+      onWillPop: () async {
+        SystemNavigator.pop();
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: const Text('Scan QR Code'),
+        ),
+        body: Stack(
+          children: [
+            QRView(
+              key: qrKey,
+              onQRViewCreated: _onQRViewCreated,
+              overlay: QrScannerOverlayShape(
+                borderColor: Colors.blue,
+                borderRadius: 10,
+                borderLength: 30,
+                borderWidth: 10,
+                cutOutSize: 300,
+              ),
             ),
-          ),
-          if (isProcessing)
-            const Center(child: CircularProgressIndicator()),
-        ],
+            if (isProcessing)
+              const Center(child: CircularProgressIndicator()),
+          ],
+        ),
       ),
     );
   }
@@ -56,21 +68,18 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       controller.pauseCamera();
       try {
         String url = scanData.code!;
+        print('QRScanner: Scanned URL: $url');
         final pdfBytes = await _fetchPdf(url);
         final result = await _extractContentFromPdf(pdfBytes);
-        Navigator.pushNamed(
-          context,
-          AppRoutes.textDisplay,
-          arguments: {
-            'text': result.text,
-            'images': result.images,
-            'imageTexts': result.imageTexts,
-            'profileDetections': result.profileDetections,
-            'profileImages': result.profileImages,
-            'extractedFields': result.extractedFields,
-          },
+        print('QRScanner: Extracted ${result.profileImages.length} images');
+        Provider.of<AttendanceDataProvider>(context, listen: false).setAttendanceData(
+          extractedFields: result.extractedFields,
+          profileImages: result.profileImages,
         );
+        print('QRScanner: Navigating to textDisplay');
+        Navigator.pushNamed(context, AppRoutes.textDisplay);
       } catch (e) {
+        print('QRScanner: Error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -84,7 +93,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   Future<Uint8List> _fetchPdf(String url) async {
     final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200 && response.headers['content-type']?.contains('application/pdf') == true) {
+    if (response.statusCode == 200 &&
+        response.headers['content-type']?.contains('application/pdf') == true) {
       return response.bodyBytes;
     } else {
       throw Exception('Failed to load PDF or invalid content type');
@@ -93,7 +103,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   Future<ExtractedContent> _extractContentFromPdf(Uint8List pdfBytes) async {
     try {
-      // --- Text Extraction with read_pdf_text ---
       String text = '';
       {
         final tempDir = await getTemporaryDirectory();
@@ -104,35 +113,36 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         print('read_pdf_text output: $text');
       }
 
-      // --- Extract Specific Fields ---
       final extractedFields = _extractFieldsFromText(text);
 
-      // --- Image Extraction with pdfx ---
       List<Uint8List> images = [];
       List<String> imageTexts = [];
       List<String> profileDetections = [];
       List<LabeledImage> profileImages = [];
-      {
-        final pdfDoc = await PdfDocument.openData(pdfBytes);
-        for (int i = 1; i <= pdfDoc.pagesCount; i++) {
-          final page = await pdfDoc.getPage(i);
-          final renderedImage = await page.render(
-            width: page.width * 2,
-            height: page.height * 2,
-            format: PdfPageImageFormat.png,
-          );
-          if (renderedImage?.bytes != null) {
-            images.add(renderedImage!.bytes);
-            final result = await _extractTextFromImage(renderedImage!.bytes, i);
-            imageTexts.add(result.text);
-            profileDetections.add(result.profileImages.isNotEmpty ? 'Yes' : 'No');
-            profileImages.addAll(result.profileImages);
-          }
-          await page.close();
+      final pdfDoc = await PdfDocument.openData(pdfBytes);
+      print('PDF pages: ${pdfDoc.pagesCount}');
+      for (int i = 1; i <= pdfDoc.pagesCount; i++) {
+        final page = await pdfDoc.getPage(i);
+        final renderedImage = await page.render(
+          width: page.width * 2,
+          height: page.height * 2,
+          format: PdfPageImageFormat.png,
+        );
+        if (renderedImage?.bytes != null) {
+          print('Page $i: Rendered image, bytes: ${renderedImage!.bytes.length}');
+          images.add(renderedImage!.bytes);
+          final result = await _extractTextFromImage(renderedImage!.bytes, i);
+          imageTexts.add(result.text);
+          profileDetections.add(result.profileImages.isNotEmpty ? 'Yes' : 'No');
+          profileImages.addAll(result.profileImages);
+        } else {
+          print('Page $i: Failed to render image');
         }
-        await pdfDoc.close();
+        await page.close();
       }
+      await pdfDoc.close();
 
+      print('QRScanner: Total profile images extracted: ${profileImages.length}');
       return ExtractedContent(
         text: text.isEmpty ? 'No text found in PDF' : text,
         images: images,
@@ -168,7 +178,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       final match = RegExp(entry.value, caseSensitive: false).firstMatch(text);
       fields[entry.key] = match?.group(1)?.trim() ?? 'Not found';
     }
-
+    print('Extracted fields: $fields');
     return fields;
   }
 
@@ -177,121 +187,44 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       final image = img.decodePng(imageBytes);
       if (image == null) {
         print('Image $index: Failed to decode image');
-        return ImageAnalysisResult(text: 'Failed to decode image', profileImages: []);
+        final blankImage = img.Image(width: 100, height: 100);
+        img.fillRect(blankImage, x1: 0, y1: 0, x2: 99, y2: 99, color: img.ColorRgb8(255, 255, 255));
+        return ImageAnalysisResult(text: 'Failed to decode image', profileImages: [
+          LabeledImage(
+            label: 'Blank Fallback Image',
+            image: img.encodePng(blankImage),
+          ),
+        ]);
       }
 
-      // Analyze image for up to three unique colorful regions
-      final width = image.width;
-      final height = image.height;
+      print('Image $index: Decoded image, width: ${image.width}, height: ${image.height}');
+
       List<LabeledImage> profileImages = [];
-      List<Rect> selectedRegions = [];
-      const profileCropSize = 120; // Larger for profile photo
-      const iconCropSize = 77; // Smaller for icons
-      const step = 50; // Sliding window step
-      const minDistance = 100; // Minimum distance between regions
-      int imageCount = 0;
+      const profileCropSize = 120;
 
-      // First: Try profile photo near (345, 220)
-          {
-        const x = 345;
-        const y = 220;
-        if (x >= 0 && x <= width - profileCropSize && y >= 0 && y <= height - profileCropSize) {
-          final region = img.copyCrop(image, x: x, y: y, width: profileCropSize, height: profileCropSize);
-          final regionStats = _computeRegionStats(region);
-          if (regionStats.isPhotoLike && regionStats.isColorful) {
-            imageCount++;
-            profileImages.add(LabeledImage(
-              label: 'Image $imageCount',
-              image: img.encodePng(region),
-            ));
-            selectedRegions.add(Rect(x: x, y: y, width: profileCropSize, height: profileCropSize));
-            print('Image $index: Found ${'Image $imageCount'} at ($x, $y), size: $profileCropSize x $profileCropSize');
-          }
+      // Extract only the first image at (345, 220)
+      if (image.width >= profileCropSize && image.height >= profileCropSize) {
+        final region = img.copyCrop(image, x: 345, y: 220, width: profileCropSize, height: profileCropSize);
+        final regionStats = _computeRegionStats(region);
+        print('Image $index: Region at (345, 220) - isPhotoLike: ${regionStats.isPhotoLike}, isColorful: ${regionStats.isColorful}');
+        if (regionStats.isPhotoLike || regionStats.isColorful) {
+          profileImages.add(LabeledImage(
+            label: 'Profile Image',
+            image: img.encodePng(region),
+          ));
+          print('Image $index: Added Profile Image at (345, 220)');
         }
       }
 
-      // Second: Scan top-right for other regions
-      if (imageCount < 3) {
-        for (int y = 0; y < height ~/ 2 && imageCount < 3; y += step) {
-          for (int x = width ~/ 2; x < width - iconCropSize && imageCount < 3; x += step) {
-            bool overlaps = false;
-            final newRect = Rect(x: x, y: y, width: iconCropSize, height: iconCropSize);
-            for (var rect in selectedRegions) {
-              if (_rectsOverlap(newRect, rect, minDistance)) {
-                overlaps = true;
-                break;
-              }
-            }
-            if (overlaps) continue;
-
-            final region = img.copyCrop(image, x: x, y: y, width: iconCropSize, height: iconCropSize);
-            final regionStats = _computeRegionStats(region);
-            if (regionStats.isPhotoLike && regionStats.isColorful) {
-              imageCount++;
-              profileImages.add(LabeledImage(
-                label: 'Image $imageCount',
-                image: img.encodePng(region),
-              ));
-              selectedRegions.add(newRect);
-              print('Image $index: Found ${'Image $imageCount'} at ($x, $y), size: $iconCropSize x $iconCropSize');
-            }
-          }
-        }
-      }
-
-      // Third: Scan top-left if needed
-      if (imageCount < 3) {
-        for (int y = 0; y < height ~/ 2 && imageCount < 3; y += step) {
-          for (int x = 0; x < width ~/ 2 - iconCropSize && imageCount < 3; x += step) {
-            bool overlaps = false;
-            final newRect = Rect(x: x, y: y, width: iconCropSize, height: iconCropSize);
-            for (var rect in selectedRegions) {
-              if (_rectsOverlap(newRect, rect, minDistance)) {
-                overlaps = true;
-                break;
-              }
-            }
-            if (overlaps) continue;
-
-            final region = img.copyCrop(image, x: x, y: y, width: iconCropSize, height: iconCropSize);
-            final regionStats = _computeRegionStats(region);
-            if (regionStats.isPhotoLike && regionStats.isColorful) {
-              imageCount++;
-              profileImages.add(LabeledImage(
-                label: 'Image $imageCount',
-                image: img.encodePng(region),
-              ));
-              selectedRegions.add(newRect);
-              print('Image $index: Found ${'Image $imageCount'} at ($x, $y), size: $iconCropSize x $iconCropSize');
-            }
-          }
-        }
-      }
-
-      // Fallback if still fewer than 3
-      if (imageCount < 3) {
-        const fallbackSize = 100;
-        int fallbackX = 50;
-        int fallbackY = 50;
-        bool overlaps;
-        do {
-          overlaps = false;
-          final newRect = Rect(x: fallbackX, y: fallbackY, width: fallbackSize, height: fallbackSize);
-          for (var rect in selectedRegions) {
-            if (_rectsOverlap(newRect, rect, minDistance)) {
-              overlaps = true;
-              fallbackX += minDistance;
-              break;
-            }
-          }
-        } while (overlaps && fallbackX < width - fallbackSize && fallbackY < height - fallbackSize);
-        final fallbackRegion = img.copyCrop(image, x: fallbackX, y: fallbackY, width: fallbackSize, height: fallbackSize);
-        imageCount++;
+      // Fallback if no image is found
+      if (profileImages.isEmpty) {
+        final blankImage = img.Image(width: 100, height: 100);
+        img.fillRect(blankImage, x1: 0, y1: 0, x2: 99, y2: 99, color: img.ColorRgb8(255, 255, 255));
         profileImages.add(LabeledImage(
-          label: 'Image $imageCount (Fallback)',
-          image: img.encodePng(fallbackRegion),
+          label: 'Blank Fallback Image',
+          image: img.encodePng(blankImage),
         ));
-        print('Image $index: Added ${'Image $imageCount'} (Fallback) at ($fallbackX, $fallbackY), size: $fallbackSize x $fallbackSize');
+        print('Image $index: Added Blank Fallback Image');
       }
 
       String text = '';
@@ -300,13 +233,21 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           text += '${entry.key}: ${entry.value}\n';
         }
       }
+      print('Image $index: Extracted text: $text, Images: ${profileImages.length}');
       return ImageAnalysisResult(
         text: text.isEmpty ? 'No embedded text found' : text,
         profileImages: profileImages,
       );
     } catch (e) {
       print('Image $index text extraction error: $e');
-      return ImageAnalysisResult(text: 'Error reading image: $e', profileImages: []);
+      final blankImage = img.Image(width: 100, height: 100);
+      img.fillRect(blankImage, x1: 0, y1: 0, x2: 99, y2: 99, color: img.ColorRgb8(255, 255, 255));
+      return ImageAnalysisResult(text: 'Error reading image: $e', profileImages: [
+        LabeledImage(
+          label: 'Error Fallback Image',
+          image: img.encodePng(blankImage),
+        ),
+      ]);
     }
   }
 
@@ -335,8 +276,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         g2Sum += g * g;
         b2Sum += b * b;
         count++;
-
-        // Relaxed color check
         if ((r - g).abs() > 15 || (g - b).abs() > 15 || (r - b).abs() > 15) {
           hasColor = true;
         }
@@ -351,8 +290,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     final bVariance = (b2Sum / count - bMean * bMean).abs();
     final totalVariance = rVariance + gVariance + bVariance;
 
-    final isPhotoLike = totalVariance > 500; // Relaxed for sensitivity
-    final isColorful = hasColor && (rMean > 20 && gMean > 20 && bMean > 20) && (rMean < 235 && gMean < 235 && bMean < 235);
+    final isPhotoLike = totalVariance > 300;
+    final isColorful = hasColor;
 
     return RegionStats(isPhotoLike: isPhotoLike, isColorful: isColorful);
   }
@@ -390,13 +329,6 @@ class ImageAnalysisResult {
     required this.text,
     required this.profileImages,
   });
-}
-
-class LabeledImage {
-  final String label;
-  final Uint8List image;
-
-  LabeledImage({required this.label, required this.image});
 }
 
 class RegionStats {

@@ -16,11 +16,11 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     Timer(const Duration(seconds: 3), () {
       // Check login status (replace with your actual authentication logic)
-      bool isLoggedIn = checkUserLoginStatus(); // Implement this function
+      // bool isLoggedIn = checkUserLoginStatus(); // Implement this function
 
       // Navigate based on login status
-      String route = isLoggedIn ? AppRoutes.qrScanner : AppRoutes.login;
-      Navigator.pushNamed(context, route);
+      // String route = isLoggedIn ? AppRoutes.qrScanner : AppRoutes.login;
+      Navigator.pushNamed(context, AppRoutes.qrScanner);
     });
   }
 
