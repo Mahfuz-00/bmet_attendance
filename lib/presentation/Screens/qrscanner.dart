@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:provider/provider.dart';
+import '../../Common/Common/Config/Theme/app_colors.dart';
 import '../../Core/Core/Navigation/app_router.dart';
 import '../../Data/Models/labeled_images.dart';
 import '../State Management/attendance_data_provider.dart';
@@ -43,7 +44,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               key: qrKey,
               onQRViewCreated: _onQRViewCreated,
               overlay: QrScannerOverlayShape(
-                borderColor: Colors.blue,
+                borderColor: AppColors.accent,
                 borderRadius: 10,
                 borderLength: 30,
                 borderWidth: 10,
@@ -51,7 +52,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               ),
             ),
             if (isProcessing)
-              const Center(child: CircularProgressIndicator()),
+              const Center(child: CircularProgressIndicator(color: AppColors.accent)),
           ],
         ),
       ),

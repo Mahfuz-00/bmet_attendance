@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:touch_attendence/Core/Core/Navigation/app_router.dart';
+import '../../Common/Common/Config/Theme/app_colors.dart';
 import '../State Management/attendance_data_provider.dart';
 
 class TextDisplayScreen extends StatelessWidget {
@@ -23,7 +24,7 @@ class TextDisplayScreen extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 16.0),
               child: Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.blue, width: 4),
+                  border: Border.all(color: AppColors.accent, width: 4),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 padding: const EdgeInsets.all(4.0),
@@ -82,7 +83,7 @@ class TextDisplayScreen extends StatelessWidget {
                   style: TextStyle(color: Colors.black),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
+                  backgroundColor: AppColors.accent,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   textStyle: const TextStyle(fontSize: 16),
                 ),

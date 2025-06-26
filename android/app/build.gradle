@@ -53,9 +53,18 @@ android {
 
     buildTypes {
         release {
+            minifyEnabled false
+            shrinkResources false
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig signingConfigs.debug
+//            signingConfig signingConfigs.release
+            android.applicationVariants.all { variant ->
+                variant.outputs.all {
+                    //outputFileName = "npo-final-v${versionCode}($versionName).apk"
+                    outputFileName = "Touch-Smart-Attendance-App-v${variant.versionCode}.${variant.versionName}.apk"
+                }
+            }
         }
     }
 }

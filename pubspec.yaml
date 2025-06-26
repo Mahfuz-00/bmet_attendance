@@ -45,6 +45,8 @@ dependencies:
   image:
   image_picker:
   provider:
+  rename_app:
+  flutter_launcher_icons:
 
 
 
@@ -59,9 +61,15 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^2.0.0
+  flutter_launcher_icons:
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "Assets/Images/logo.png"
+  min_sdk_android: 21
 
 # The following section is specific to Flutter packages.
 flutter:

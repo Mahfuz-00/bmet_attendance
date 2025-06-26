@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:touch_attendence/Common/Common/Config/Theme/app_colors.dart';
 import 'dart:async';
 
+import '../../Common/Common/Config/Assets/app_images.dart';
 import '../../Core/Core/Navigation/app_router.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -35,24 +37,30 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).primaryColor,
+      backgroundColor: AppColors.background,
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Image.asset(
+                AppImages.loginLogo,
+                height: 100,
+                width: 100,
+              ),
+              SizedBox(height: 16,),
               const Text(
-                'Touch Automatic Attendance System',
+                'Touch Smart Attendance System',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 24,
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 20),
-              CircularProgressIndicator(color: Colors.white),
+              CircularProgressIndicator(color: AppColors.accent),
             ],
           ),
         ),
