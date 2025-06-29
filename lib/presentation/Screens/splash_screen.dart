@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:touch_attendence/Common/Common/Config/Theme/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-
 import '../../Common/Common/Config/Assets/app_images.dart';
+import '../../Common/Common/Config/Theme/app_colors.dart';
 import '../../Core/Core/Navigation/app_router.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -16,22 +16,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 3), () {
-      // Check login status (replace with your actual authentication logic)
-      // bool isLoggedIn = checkUserLoginStatus(); // Implement this function
+    Timer(const Duration(seconds: 3), () async {
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
 
-      // Navigate based on login status
-      // String route = isLoggedIn ? AppRoutes.qrScanner : AppRoutes.login;
-      Navigator.pushNamed(context, AppRoutes.qrScanner);
+      print('SplashScreen: isLoggedIn: $isLoggedIn');
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          isLoggedIn ? AppRoutes.qrScanner : AppRoutes.login,
+              (route) => false,
+        );
+      }
     });
-  }
-
-  // Example function to check login status (replace with actual logic)
-  bool checkUserLoginStatus() {
-    // Placeholder: Implement your authentication check here
-    // For example, check SharedPreferences, Firebase Auth, or another auth service
-    // Return true if user is logged in, false otherwise
-    return false; // Default to false for demonstration
   }
 
   @override
@@ -48,8 +46,13 @@ class _SplashScreenState extends State<SplashScreen> {
                 AppImages.loginLogo,
                 height: 100,
                 width: 100,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.image,
+                  size: 100,
+                  color: AppColors.textSecondary,
+                ),
               ),
-              SizedBox(height: 16,),
+              const SizedBox(height: 16),
               const Text(
                 'Touch Smart Attendance System',
                 textAlign: TextAlign.center,

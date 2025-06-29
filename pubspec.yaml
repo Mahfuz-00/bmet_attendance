@@ -47,6 +47,7 @@ dependencies:
   provider:
   rename_app:
   flutter_launcher_icons:
+  shared_preferences:
 
 
 

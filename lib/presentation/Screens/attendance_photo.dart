@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:typed_data';
 import '../../Common/Common/Config/Theme/app_colors.dart';
 import '../../Core/Core/Navigation/app_router.dart';
@@ -50,10 +51,22 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
       print('Profile Image: ${attendanceData.profileImages.isNotEmpty ? attendanceData.profileImages[0].image : 'No image'}');
       print('Attendance Photo bytes: ${_attendancePhoto!.length}, first bytes: ${_attendancePhoto!.sublist(0, 4)}');
 
+
+      final prefs = await SharedPreferences.getInstance();
+      final authToken = prefs.getString('auth_token');
+      if (authToken == null || authToken.isEmpty) {
+        throw Exception('Authentication token not found. Please log in again.');
+      }
+
+
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('https://smartatn.touchandsolve.com/api/user/attendance'),
       );
+
+      // Add Authorization header
+      request.headers['Authorization'] = 'Bearer $authToken';
+      print('AttendancePhoto: Authorization header set: Bearer $authToken');
 
       request.fields['name'] = attendanceData.extractedFields['Name'] ?? 'Not found';
       print('Fields: ${request.fields}');
@@ -159,6 +172,19 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
         Navigator.pushNamedAndRemoveUntil(
           context,
           AppRoutes.qrScanner,
+              (route) => false,
+        );
+      } else if (response.statusCode == 401) {
+        // Handle unauthorized error
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unauthorized: Please log in again')),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('auth_token');
+        await prefs.setBool('is_logged_in', false);
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.login,
               (route) => false,
         );
       } else {
