@@ -285,6 +285,15 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
       textStyle: const TextStyle(fontSize: 16),
     );
 
+    // Define style for Cancel button with red background
+    final cancelButtonStyle = ElevatedButton.styleFrom(
+      backgroundColor: Colors.red, // Red background for Cancel button
+      disabledBackgroundColor: Colors.grey,
+      minimumSize: Size(screenWidth * 0.8, 0), // Same size as other buttons
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      textStyle: const TextStyle(fontSize: 16),
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('Student Attendance')),
       body: Center(
@@ -414,6 +423,22 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
                     style: TextStyle(color: AppColors.textPrimary),
                   ),
                   style: buttonStyle,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      AppRoutes.qrScanner,
+                          (route) => false,
+                    );
+                  },
+                  icon: const Icon(Icons.close, color: Colors.black, size: 24),
+                  label: const Text(
+                    'Cancel and back to QR Scanner',
+                    style: TextStyle(color: Colors.black),
+                  ),
+                  style: cancelButtonStyle,
                 ),
                 const SizedBox(height: 16),
               ],
