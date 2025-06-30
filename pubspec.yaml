@@ -48,6 +48,7 @@ dependencies:
   rename_app:
   flutter_launcher_icons:
   shared_preferences:
+  flutter_image_compress:
 
 
 

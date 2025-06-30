@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../Common/Common/Config/Theme/app_colors.dart';
 import '../../Core/Core/Navigation/app_router.dart';
 import '../../Data/Models/labeled_images.dart';
@@ -37,6 +38,21 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: const Text('Scan QR Code'),
+          actions: [
+            IconButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('auth_token');
+                await prefs.setBool('is_logged_in', false);
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.login,
+                      (route) => false,
+                );
+              },
+              icon: const Icon(Icons.logout),
+            )
+          ],
         ),
         body: Stack(
           children: [
