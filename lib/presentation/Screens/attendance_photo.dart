@@ -59,7 +59,7 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
       final compressedBytes = await _compressImage(bytes, 'attendance');
       if (compressedBytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to compress attendance photo below 5MB')),
+          const SnackBar(content: Text('Failed to compress attendance photo below 100KB')),
         );
         return;
       }
@@ -175,7 +175,7 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
             final compressedProfileImage = await _compressImage(profileImage, 'profile');
             if (compressedProfileImage == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Failed to compress profile image below 5MB')),
+                const SnackBar(content: Text('Failed to compress profile image below 100KB')),
               );
               setState(() {
                 _isSubmitting = false;
