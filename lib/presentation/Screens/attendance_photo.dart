@@ -23,27 +23,27 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
   bool _isSubmitting = false;
 
   Future<Uint8List?> _compressImage(Uint8List imageBytes, String imageType) async {
-    // Compressing the image to reduce size to under 5MB
+    // Compressing the image to reduce size to under 100KB
     Uint8List compressedBytes = imageBytes;
-    int quality = 85; // Initial quality (0-100)
-    const int maxSizeBytes = 5 * 1024 * 1024; // 5MB in bytes
+    int quality = 95; // Initial quality (0-100)
+    const int maxSizeBytes = 100 * 1024; // 100KB in bytes
 
-    print('Original $imageType size: ${compressedBytes.length / 1024 / 1024} MB');
+    print('Original $imageType size: ${compressedBytes.length / 1024} KB');
 
     while (compressedBytes.length > maxSizeBytes && quality > 10) {
       compressedBytes = await FlutterImageCompress.compressWithList(
         imageBytes,
-        minWidth: 1024, // Reduce resolution
-        minHeight: 1024,
+        minWidth: 320, // Reduce resolution
+        minHeight: 320,
         quality: quality, // Adjust quality
         format: imageType == 'profile' ? CompressFormat.png : CompressFormat.jpeg, // PNG for profile, JPEG for attendance
       );
       quality -= 10; // Reduce quality incrementally if still too large
-      print('Compressed $imageType size: ${compressedBytes.length / 1024 / 1024} MB, quality: $quality');
+      print('Compressed $imageType size: ${compressedBytes.length / 1024} KB, quality: $quality');
     }
 
     if (compressedBytes.length > maxSizeBytes) {
-      print('Warning: Could not compress $imageType below 5MB, current size: ${compressedBytes.length / 1024 / 1024} MB');
+      print('Warning: Could not compress $imageType below 100KB, current size: ${compressedBytes.length / 1024} KB');
       return null; // Return null if compression fails to meet size requirement
     }
 

@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.touch_attendence"
-    compileSdkVersion 34
+    compileSdkVersion 35
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -46,9 +46,9 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         minSdkVersion 21
-        targetSdkVersion 34
+        targetSdkVersion 35
         versionCode 1
-        versionName '1.0'
+        versionName '1.0.3'
     }
 
     buildTypes {
@@ -73,4 +73,82 @@ flutter {
     source '../..'
 }
 
-dependencies {}
+dependencies {
+    implementation 'com.github.rmtheis:tess-two:9.1.0'
+}
+
+
+subprojects { project ->
+    if (project.name == 'shared_preferences_android') {
+        project.plugins.whenPluginAdded { plugin ->
+            if (plugin.class.name.contains("com.android.build.gradle.LibraryPlugin")) {
+                project.android {
+                    namespace 'io.flutter.plugins.sharedpreferences'
+                }
+            }
+        }
+    }
+    if (project.name == 'webview_flutter_android') {
+        project.plugins.whenPluginAdded { plugin ->
+            if (plugin.class.name.contains("com.android.build.gradle.LibraryPlugin")) {
+                project.android {
+                    namespace 'io.flutter.plugins.webviewflutter'
+                }
+            }
+        }
+    }
+}
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.apply plugin: 'com.android.library'
+            project.apply plugin: 'kotlin-android'
+            project.android {
+                compileSdkVersion 35
+                defaultConfig {
+                    minSdkVersion flutter.minSdkVersion
+                }
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+                kotlinOptions {
+                    jvmTarget = '17'
+                }
+                if (project.name == 'shared_preferences_android') {
+                    namespace 'io.flutter.plugins.sharedpreferences'
+                } else if (project.name == 'connectivity_plus') {
+                    namespace 'dev.fluttercommunity.plus.connectivity'
+                } else if (project.name == 'url_launcher_android') {
+                    namespace 'io.flutter.plugins.urllauncher'
+                } else if (project.name == 'path_provider_android') {
+                    namespace 'io.flutter.plugins.pathprovider'
+                } else if (project.name == 'flutter_tesseract_ocr') {
+                    namespace 'io.paratoner.flutter_tesseract_ocr' // Updated to match AndroidManifest.xml
+                } else if (project.name == 'qr_code_scanner') {
+                    namespace 'net.touchcapture.qr.flutterqr'
+                } else if (project.name == 'share') {
+                    namespace 'dev.fluttercommunity.plus.share'
+                } else if (project.name == 'flutter_plugin_android_lifecycle') {
+                    namespace 'io.flutter.plugins.flutter_plugin_android_lifecycle'
+                } else if (project.android.namespace == null) {
+                    namespace project.group ?: 'com.example.default'
+                }
+            }
+            project.dependencies {
+                implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+                if (project.name == 'flutter_tesseract_ocr') {
+                    api files('libs/tesseract4android-release.aar')
+                }
+                if (project.name == 'qr_code_scanner') {
+                    implementation 'androidx.appcompat:appcompat:1.6.1'
+                    implementation 'com.google.zxing:core:3.5.0'
+                }
+                if (project.name == 'shared_preferences_android') {
+                    implementation 'androidx.annotation:annotation:1.7.0'
+                }
+            }
+        }
+    }
+}

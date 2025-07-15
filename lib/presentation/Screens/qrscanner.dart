@@ -29,16 +29,33 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        SystemNavigator.pop();
-        return false;
+    final size = MediaQuery.of(context).size;
+    final cutOutSize = size.width * 0.8;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          SystemNavigator.pop();
+        }
       },
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: const Text('Scan QR Code'),
           actions: [
+            IconButton(
+              onPressed: () {
+                controller?.toggleFlash();
+                setState(() {}); // Update UI if torch state changes
+              },
+              icon: FutureBuilder<bool?>(
+                future: controller?.getFlashStatus(),
+                builder: (context, snapshot) {
+                  return Icon(snapshot.data == true ? Icons.flash_on : Icons.flash_off);
+                },
+              ),
+            ),
             IconButton(
               onPressed: () async {
                 final prefs = await SharedPreferences.getInstance();
@@ -61,12 +78,30 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               onQRViewCreated: _onQRViewCreated,
               overlay: QrScannerOverlayShape(
                 borderColor: AppColors.accent,
-                borderRadius: 10,
-                borderLength: 30,
-                borderWidth: 10,
-                cutOutSize: 300,
+                borderRadius: 12,
+                borderLength: 40,
+                borderWidth: 8,
+                cutOutSize: cutOutSize,
+                overlayColor: Colors.black.withOpacity(0.6),
               ),
             ),
+            // Center(
+            //   child: Container(
+            //     // width: 320,
+            //     // height: 320,
+            //     // decoration: BoxDecoration(
+            //     //   border: Border.all(color: AppColors.accent, width: 8),
+            //     //   borderRadius: BorderRadius.circular(12),
+            //     // ),
+            //     child: const Center(
+            //       child: Text(
+            //         'Align QR code within the frame',
+            //         style: TextStyle(color: Colors.white, fontSize: 16),
+            //         textAlign: TextAlign.center,
+            //       ),
+            //     ),
+            //   ),
+            // ),
             if (isProcessing)
               const Center(child: CircularProgressIndicator(color: AppColors.accent)),
           ],
@@ -105,11 +140,37 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           isProcessing = false;
         });
       }
+    }, onError: (error) {
+      print('QRScanner: Stream error: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('QR Scanner error: $error')),
+      );
+      setState(() {
+        isProcessing = false;
+      });
     });
+    // Log camera status
+    controller.getCameraInfo().then((cameraInfo) {
+      print('QRScanner: Camera info: $cameraInfo');
+    });
+    controller.getFlashStatus().then((flashStatus) {
+      print('QRScanner: Flash status: $flashStatus');
+    });
+    // Check permissions
+    // controller.hasPermissions().then((hasPermission) {
+    //   print('QRScanner: Camera permission: $hasPermission');
+    //   if (!hasPermission) {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       const SnackBar(content: Text('Camera permission denied')),
+    //     );
+    //   }
+    // });
   }
 
   Future<Uint8List> _fetchPdf(String url) async {
+    print('URL : $url');
     final response = await http.get(Uri.parse(url));
+    print('Response Body: ${response.body}');
     if (response.statusCode == 200 &&
         response.headers['content-type']?.contains('application/pdf') == true) {
       return response.bodyBytes;
@@ -131,6 +192,13 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       }
 
       final extractedFields = _extractFieldsFromText(text);
+      if (extractedFields.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Wrong format')),
+        );
+        controller?.resumeCamera();
+        setState(() => isProcessing = false);
+      }
 
       List<Uint8List> images = [];
       List<String> imageTexts = [];
@@ -175,28 +243,137 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   }
 
   Map<String, String> _extractFieldsFromText(String text) {
-    final Map<String, String> patterns = {
-      'Name': r'Name[:\s]*(.+?)(?:\n|$)',
-      "Father's Name": r"Father's Name[:\s]*(.+?)(?:\n|$)",
-      "Mother's Name": r"Mother's Name[:\s]*(.+?)(?:\n|$)",
-      'Passport No': r'Passport No[:\s]*(.+?)(?:\n|$)',
-      'Destination Country': r'Destination Country[:\s]*(.+?)(?:\n|$)',
-      'Batch No': r'Batch No[:\s]*(.+?)(?:\n|$)',
-      'Room No': r'Room No[:\s]*(.+?)(?:\n|$)',
-      'Student ID': r'Student ID[:\s]*(.+?)(?:\n|$)',
-      'Roll No': r'Roll No[:\s]*(.+?)(?:\n|$)',
-      'Venue / Institute': r'Venue / Institute[:\s]*(.+?)(?:\n|$)',
-      'Course Date': r'Course Date[:\s]*(.+?)(?:\n|$)',
-      'Course Time': r'Course Time[:\s]*(.+?)(?:\n|$)',
-    };
-
     final fields = <String, String>{};
-    for (var entry in patterns.entries) {
-      final match = RegExp(entry.value, caseSensitive: false).firstMatch(text);
-      fields[entry.key] = match?.group(1)?.trim() ?? 'Not found';
+
+    // Remove all lines starting with 'PDO Enrollment Card'
+    final lines = text
+        .split('\n')
+        .where((line) => !line.trim().startsWith('PDO Enrollment Card'))
+        .toList();
+
+    // Remove after 'Verify this card' if exists
+    final cleanedLines = <String>[];
+    for (var line in lines) {
+      if (line.trim().toLowerCase().startsWith('verify this card')) break;
+      cleanedLines.add(line);
     }
-    print('Extracted fields: $fields');
-    return fields;
+
+    // Process horizontal key-value pairs
+    final horizontalPattern = RegExp(r'^\s*([^:;=\n]+?)\s*[:;=]\s*(.+)$');
+
+    for (var line in cleanedLines) {
+      // Split line by comma, each segment can be a key-value pair
+      final segments = line.split(',');
+      for (var segment in segments) {
+        final match = horizontalPattern.firstMatch(segment.trim());
+        if (match != null) {
+          final key = match.group(1)?.trim();
+          final value = match.group(2)?.trim();
+          if (key != null && value != null && key.isNotEmpty && value.isNotEmpty) {
+            fields[key] = value;
+          }
+        }
+      }
+    }
+
+    // Process vertical key-value pairs (lines where a key is on one line and value next)
+    // Only add if key not already present (to avoid override)
+    for (int i = 0; i < cleanedLines.length - 1; i++) {
+      final key = cleanedLines[i].trim();
+      final value = cleanedLines[i + 1].trim();
+      if (key.isNotEmpty && value.isNotEmpty && !fields.containsKey(key)) {
+        fields[key] = value;
+        i++; // skip next line
+      }
+    }
+
+    // === DUPLICATE KEY REMOVAL BASED ON PARTIAL MATCHING ===
+    // Remove keys where a longer key contains a shorter key (case-insensitive)
+    final allKeys = fields.keys.toList();
+    final keysToRemove = <String>{};
+
+    for (var key in allKeys) {
+      if (key == "Father's Name" || key == "Mother's Name") continue;
+      for (var otherKey in allKeys) {
+        if (key != otherKey &&
+            key.contains(otherKey) &&
+            key.length > otherKey.length &&
+            fields.containsKey(otherKey)) {
+          keysToRemove.add(key);
+          break;
+        }
+      }
+    }
+
+    for (var key in keysToRemove) {
+      fields.remove(key);
+    }
+
+
+    // Required fields check
+    const requiredFields = [
+      'Name',
+      'Passport No',
+      'Venue / Institute',
+      'Roll No',
+      'Student ID',
+    ];
+
+    // Accept either Batch No OR Batch Name (Code)
+    final hasBatch = fields.containsKey('Batch No') || fields.containsKey('Batch Name (Code)');
+
+    final hasAllRequired = hasBatch &&
+        requiredFields.every(
+                (key) => fields.containsKey(key) && fields[key]!.trim().isNotEmpty);
+
+    if (!hasAllRequired) {
+      return {}; // signal wrong format
+    }
+
+    // Group keys by type (check substrings case-insensitive)
+    final nameTypeSubstrings = ['name'];
+    final idTypeSubstrings = ['no', 'id', 'code'];
+
+    final venueCourseType = ['venue', 'course'];
+
+    final sortedFields = <String, String>{};
+
+    // Helper to check if key contains any substring from list (case-insensitive)
+    bool containsAny(String key, List<String> substrings) {
+      final lowerKey = key.toLowerCase();
+      return substrings.any((sub) => lowerKey.contains(sub));
+    }
+
+    // Add nameType fields first
+    fields.forEach((key, value) {
+      if (containsAny(key, nameTypeSubstrings)) {
+        sortedFields[key] = value;
+      }
+    });
+
+    // Then idType fields
+    fields.forEach((key, value) {
+      if (!sortedFields.containsKey(key) && containsAny(key, idTypeSubstrings)) {
+        sortedFields[key] = value;
+      }
+    });
+
+    // Then venueCourseType fields
+    fields.forEach((key, value) {
+      if (!sortedFields.containsKey(key) && containsAny(key, venueCourseType)) {
+        sortedFields[key] = value;
+      }
+    });
+
+    // Finally, any other fields
+    fields.forEach((key, value) {
+      if (!sortedFields.containsKey(key)) {
+        sortedFields[key] = value;
+      }
+    });
+
+    print('Sorted & Validated Fields: $sortedFields');
+    return sortedFields;
   }
 
   Future<ImageAnalysisResult> _extractTextFromImage(Uint8List imageBytes, int index) async {

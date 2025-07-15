@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:touch_attendence/Common/Common/Config/Theme/app_colors.dart';
@@ -5,7 +7,18 @@ import 'package:touch_attendence/presentation/State%20Management/attendance_data
 
 import 'Core/Core/Navigation/app_router.dart';
 
+import 'package:http/http.dart' as http;
+
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
+
 void main() {
+  HttpOverrides.global = MyHttpOverrides();
   runApp(const TouchAttendanceApp());
 }
 
