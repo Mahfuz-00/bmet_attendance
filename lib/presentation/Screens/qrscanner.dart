@@ -242,139 +242,128 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     }
   }
 
-  Map<String, String> _extractFieldsFromText(String text) {
-    final fields = <String, String>{};
+  Map<String, String?> _extractFieldsFromText(String text) {
+    final fields = <String, String?>{};
 
-    // Remove all lines starting with 'PDO Enrollment Card'
+    const validLabels = [
+      'Name',
+      "Father's Name",
+      'Father Name',
+      "Mother's Name",
+      'Mother Name',
+      'NID / Birth Reg. No.',
+      'NID',
+      'Birth Reg. No.',
+      'Birth Reg No',
+      'Passport No',
+      'Destination Country',
+      'Room No',
+      'Student ID',
+      'Roll No',
+      'Batch Name (Code)',
+      'Batch Code',
+      'Batch No',
+      'Venue / Institute',
+      'Venue',
+      'Institute Name',
+      'Course Date',
+      'Course Time',
+    ];
+
+    for (var label in validLabels) {
+      fields[label] = null;
+    }
+
     final lines = text
         .split('\n')
         .where((line) => !line.trim().startsWith('PDO Enrollment Card'))
         .toList();
 
-    // Remove after 'Verify this card' if exists
     final cleanedLines = <String>[];
     for (var line in lines) {
       if (line.trim().toLowerCase().startsWith('verify this card')) break;
       cleanedLines.add(line);
     }
 
-    // Process horizontal key-value pairs
-    final horizontalPattern = RegExp(r'^\s*([^:;=\n]+?)\s*[:;=]\s*(.+)$');
+    String? findMatchingLabel(String line) {
+      final normalizedLine = line.toLowerCase().replaceAll(RegExp(r'[.:/()\s]+'), '');
+      for (var label in validLabels) {
+        final normalizedLabel = label.toLowerCase().replaceAll(RegExp(r'[.:/()\s]+'), '');
+        if (normalizedLine == normalizedLabel || normalizedLine.startsWith(normalizedLabel)) {
+          if (label == 'Batch Code' || label == 'Batch Name (Code)') {
+            return 'Batch No';
+          }
+          return label;
+        }
+      }
+      return null;
+    }
 
-    for (var line in cleanedLines) {
-      // Split line by comma, each segment can be a key-value pair
-      final segments = line.split(',');
-      for (var segment in segments) {
-        final match = horizontalPattern.firstMatch(segment.trim());
-        if (match != null) {
-          final key = match.group(1)?.trim();
-          final value = match.group(2)?.trim();
-          if (key != null && value != null && key.isNotEmpty && value.isNotEmpty) {
-            fields[key] = value;
+    String? currentLabel;
+    final buffer = StringBuffer();
+
+    for (int i = 0; i < cleanedLines.length; i++) {
+      final line = cleanedLines[i].trim();
+
+      // Try two-line label detection:
+      String? matchedLabel;
+      String? initialValue;
+
+      // 1. Check if line has horizontal label:value pattern
+      final horizontalMatch = RegExp(r'^(.+?)\s*[:;=]\s*(.*)$').firstMatch(line);
+      if (horizontalMatch != null) {
+        final possibleLabel = horizontalMatch.group(1)?.trim();
+        matchedLabel = findMatchingLabel(possibleLabel ?? '');
+        initialValue = horizontalMatch.group(2)?.trim();
+      } else {
+        // 2. If no horizontal match, try single line label
+        matchedLabel = findMatchingLabel(line);
+
+        // 3. If still no label and next line exists, try two-line label:
+        if (matchedLabel == null && i + 1 < cleanedLines.length) {
+          final combinedLabel = (line + ' ' + cleanedLines[i + 1].trim()).trim();
+          matchedLabel = findMatchingLabel(combinedLabel);
+          if (matchedLabel != null) {
+            i++; // consume next line as label line
           }
         }
       }
-    }
 
-    // Process vertical key-value pairs (lines where a key is on one line and value next)
-    // Only add if key not already present (to avoid override)
-    for (int i = 0; i < cleanedLines.length - 1; i++) {
-      final key = cleanedLines[i].trim();
-      final value = cleanedLines[i + 1].trim();
-      if (key.isNotEmpty && value.isNotEmpty && !fields.containsKey(key)) {
-        fields[key] = value;
-        i++; // skip next line
-      }
-    }
-
-    // === DUPLICATE KEY REMOVAL BASED ON PARTIAL MATCHING ===
-    // Remove keys where a longer key contains a shorter key (case-insensitive)
-    final allKeys = fields.keys.toList();
-    final keysToRemove = <String>{};
-
-    for (var key in allKeys) {
-      if (key == "Father's Name" || key == "Mother's Name") continue;
-      for (var otherKey in allKeys) {
-        if (key != otherKey &&
-            key.contains(otherKey) &&
-            key.length > otherKey.length &&
-            fields.containsKey(otherKey)) {
-          keysToRemove.add(key);
-          break;
+      if (matchedLabel != null) {
+        // Save previous label's buffered value
+        if (currentLabel != null && fields[currentLabel] == null) {
+          fields[currentLabel] = buffer.toString().trim();
         }
+        // Start new label & clear buffer
+        currentLabel = matchedLabel;
+        buffer.clear();
+
+        if (initialValue != null && initialValue.isNotEmpty) {
+          buffer.write(initialValue);
+        }
+      } else if (currentLabel != null) {
+        // Append current line to current label's value buffer
+        if (buffer.isNotEmpty) buffer.write(' ');
+        buffer.write(line);
       }
     }
 
-    for (var key in keysToRemove) {
-      fields.remove(key);
+    // Save last label's buffer
+    if (currentLabel != null && fields[currentLabel] == null) {
+      fields[currentLabel] = buffer.toString().trim();
     }
 
-
-    // Required fields check
-    const requiredFields = [
-      'Name',
-      'Passport No',
-      'Venue / Institute',
-      'Roll No',
-      'Student ID',
-    ];
-
-    // Accept either Batch No OR Batch Name (Code)
-    final hasBatch = fields.containsKey('Batch No') || fields.containsKey('Batch Name (Code)');
-
-    final hasAllRequired = hasBatch &&
-        requiredFields.every(
-                (key) => fields.containsKey(key) && fields[key]!.trim().isNotEmpty);
-
-    if (!hasAllRequired) {
-      return {}; // signal wrong format
-    }
-
-    // Group keys by type (check substrings case-insensitive)
-    final nameTypeSubstrings = ['name'];
-    final idTypeSubstrings = ['no', 'id', 'code'];
-
-    final venueCourseType = ['venue', 'course'];
-
-    final sortedFields = <String, String>{};
-
-    // Helper to check if key contains any substring from list (case-insensitive)
-    bool containsAny(String key, List<String> substrings) {
-      final lowerKey = key.toLowerCase();
-      return substrings.any((sub) => lowerKey.contains(sub));
-    }
-
-    // Add nameType fields first
-    fields.forEach((key, value) {
-      if (containsAny(key, nameTypeSubstrings)) {
-        sortedFields[key] = value;
+    // Remove null or empty fields
+    final finalFields = <String, String>{};
+    fields.forEach((k, v) {
+      if (v != null && v.trim().isNotEmpty) {
+        finalFields[k] = v.trim();
       }
     });
 
-    // Then idType fields
-    fields.forEach((key, value) {
-      if (!sortedFields.containsKey(key) && containsAny(key, idTypeSubstrings)) {
-        sortedFields[key] = value;
-      }
-    });
-
-    // Then venueCourseType fields
-    fields.forEach((key, value) {
-      if (!sortedFields.containsKey(key) && containsAny(key, venueCourseType)) {
-        sortedFields[key] = value;
-      }
-    });
-
-    // Finally, any other fields
-    fields.forEach((key, value) {
-      if (!sortedFields.containsKey(key)) {
-        sortedFields[key] = value;
-      }
-    });
-
-    print('Sorted & Validated Fields: $sortedFields');
-    return sortedFields;
+    return finalFields;
   }
+
 
   Future<ImageAnalysisResult> _extractTextFromImage(Uint8List imageBytes, int index) async {
     try {
@@ -503,7 +492,7 @@ class ExtractedContent {
   final List<String> imageTexts;
   final List<String> profileDetections;
   final List<LabeledImage> profileImages;
-  final Map<String, String> extractedFields;
+  final Map<String, String?> extractedFields;
 
   ExtractedContent({
     required this.text,

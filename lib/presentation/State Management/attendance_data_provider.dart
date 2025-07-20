@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import '../../Data/Models/labeled_images.dart';
 
 class AttendanceDataProvider with ChangeNotifier {
-  Map<String, String> _extractedFields = {};
+  Map<String, String?> _extractedFields = {};
   List<LabeledImage> _profileImages = [];
 
-  Map<String, String> get extractedFields => _extractedFields;
+  Map<String, String?> get extractedFields => _extractedFields;
   List<LabeledImage> get profileImages => _profileImages;
 
   void setAttendanceData({
-    required Map<String, String> extractedFields,
+    required Map<String, String?> extractedFields,
     required List<LabeledImage> profileImages,
   }) {
     _extractedFields = extractedFields;
