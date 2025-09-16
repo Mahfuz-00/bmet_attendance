@@ -1,0 +1,32 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+class RegistrationApiService {
+  static const String _baseUrl = 'http://qratn.alhadiexpress.com.bd/api';
+
+  Future<String> checkRegistrationStatus(String studentId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final authToken = prefs.getString('auth_token');
+    if (authToken == null) {
+      throw Exception('Authentication token not found');
+    }
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/check-registration?student_id=$studentId'),
+      headers: {
+        'Authorization': 'Bearer $authToken',
+        'Content-Type': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      return json['message'] ?? 'Not Register';
+    } else if (response.statusCode == 401) {
+      throw Exception('Unauthorized: Please log in again');
+    } else {
+      throw Exception('Failed to check registration: ${response.body}');
+    }
+  }
+}

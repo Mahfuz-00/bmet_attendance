@@ -42,7 +42,6 @@ dependencies:
   path_provider: ^2.1.5
   pdfx:
   pdf:
-  flutter_tesseract_ocr: ^0.4.26
   image:
   image_picker:
   provider:
@@ -51,6 +50,12 @@ dependencies:
   shared_preferences: ^2.2.3
   flutter_image_compress:
   win32_registry: ^1.1.1
+  get_it:
+  geolocator:
+  flutter_bloc:
+  equatable:
+  camera:
+  tflite_flutter:
 
 
 dependency_overrides:
@@ -101,7 +106,11 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - Assets/Images/
+    - assets/Images/
+    - assets/tessdata_config.json
+    - assets/tessdata/eng.traineddata
+    - assets/tessdata/tessdata_config.json
+    - assets/models/facenet.tflite
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

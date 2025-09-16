@@ -7,13 +7,49 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'dart:io';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../Common/Common/Config/Theme/app_colors.dart';
-import '../../Core/Core/Navigation/app_router.dart';
+import '../../Common/Config/Theme/app_colors.dart';
+import '../../Core/Dependecy Injection/di.dart';
+import '../../Core/Navigation/app_router.dart';
 import '../../Data/Models/labeled_images.dart';
-import '../State Management/attendance_data_provider.dart';
+import '../Bloc/attendance_data_bloc.dart';
 import 'package:image/image.dart' as img;
+
+class ExtractedContent {
+  final String text;
+  final List<Uint8List> images;
+  final List<String> imageTexts;
+  final List<String> profileDetections;
+  final List<LabeledImage> profileImages;
+  final Map<String, String?> extractedFields;
+
+  ExtractedContent({
+    required this.text,
+    required this.images,
+    required this.imageTexts,
+    required this.profileDetections,
+    required this.profileImages,
+    required this.extractedFields,
+  });
+}
+
+class ImageAnalysisResult {
+  final String text;
+  final List<LabeledImage> profileImages;
+
+  ImageAnalysisResult({
+    required this.text,
+    required this.profileImages,
+  });
+}
+
+class RegionStats {
+  final bool isPhotoLike;
+  final bool isColorful;
+
+  RegionStats({required this.isPhotoLike, required this.isColorful});
+}
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({Key? key}) : super(key: key);
@@ -32,79 +68,65 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     final size = MediaQuery.of(context).size;
     final cutOutSize = size.width * 0.8;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          SystemNavigator.pop();
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('Scan QR Code'),
-          actions: [
-            IconButton(
-              onPressed: () {
-                controller?.toggleFlash();
-                setState(() {}); // Update UI if torch state changes
-              },
-              icon: FutureBuilder<bool?>(
-                future: controller?.getFlashStatus(),
-                builder: (context, snapshot) {
-                  return Icon(snapshot.data == true ? Icons.flash_on : Icons.flash_off);
+    return BlocProvider(
+      create: (_) => sl<AttendanceDataBloc>(),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            SystemNavigator.pop();
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            title: const Text('Scan QR Code'),
+            actions: [
+              IconButton(
+                onPressed: () {
+                  controller?.toggleFlash();
+                  setState(() {});
                 },
+                icon: FutureBuilder<bool?>(
+                  future: controller?.getFlashStatus(),
+                  builder: (context, snapshot) {
+                    return Icon(snapshot.data == true ? Icons.flash_on : Icons.flash_off);
+                  },
+                ),
               ),
-            ),
-            IconButton(
-              onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('auth_token');
-                await prefs.setBool('is_logged_in', false);
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  AppRoutes.login,
-                      (route) => false,
-                );
-              },
-              icon: const Icon(Icons.logout),
-            )
-          ],
-        ),
-        body: Stack(
-          children: [
-            QRView(
-              key: qrKey,
-              onQRViewCreated: _onQRViewCreated,
-              overlay: QrScannerOverlayShape(
-                borderColor: AppColors.accent,
-                borderRadius: 12,
-                borderLength: 40,
-                borderWidth: 8,
-                cutOutSize: cutOutSize,
-                overlayColor: Colors.black.withOpacity(0.6),
+              IconButton(
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('auth_token');
+                  await prefs.setBool('is_logged_in', false);
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    AppRoutes.login,
+                        (route) => false,
+                  );
+                },
+                icon: const Icon(Icons.logout),
               ),
-            ),
-            // Center(
-            //   child: Container(
-            //     // width: 320,
-            //     // height: 320,
-            //     // decoration: BoxDecoration(
-            //     //   border: Border.all(color: AppColors.accent, width: 8),
-            //     //   borderRadius: BorderRadius.circular(12),
-            //     // ),
-            //     child: const Center(
-            //       child: Text(
-            //         'Align QR code within the frame',
-            //         style: TextStyle(color: Colors.white, fontSize: 16),
-            //         textAlign: TextAlign.center,
-            //       ),
-            //     ),
-            //   ),
-            // ),
-            if (isProcessing)
-              const Center(child: CircularProgressIndicator(color: AppColors.accent)),
-          ],
+            ],
+          ),
+          body: Stack(
+            children: [
+              QRView(
+                key: qrKey,
+                onQRViewCreated: _onQRViewCreated,
+                overlay: QrScannerOverlayShape(
+                  borderColor: AppColors.accent,
+                  borderRadius: 12,
+                  borderLength: 40,
+                  borderWidth: 8,
+                  cutOutSize: cutOutSize,
+                  overlayColor: Colors.black.withOpacity(0.6),
+                ),
+              ),
+              if (isProcessing)
+                const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+            ],
+          ),
         ),
       ),
     );
@@ -124,10 +146,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         final pdfBytes = await _fetchPdf(url);
         final result = await _extractContentFromPdf(pdfBytes);
         print('QRScanner: Extracted ${result.profileImages.length} images');
-        Provider.of<AttendanceDataProvider>(context, listen: false).setAttendanceData(
-          extractedFields: result.extractedFields,
+        context.read<AttendanceDataBloc>().add(SetAttendanceData(
+          fields: result.extractedFields,
           profileImages: result.profileImages,
-        );
+        ));
         print('QRScanner: Navigating to textDisplay');
         Navigator.pushNamed(context, AppRoutes.textDisplay);
       } catch (e) {
@@ -149,26 +171,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         isProcessing = false;
       });
     });
-    // Log camera status
     controller.getCameraInfo().then((cameraInfo) {
       print('QRScanner: Camera info: $cameraInfo');
     });
     controller.getFlashStatus().then((flashStatus) {
       print('QRScanner: Flash status: $flashStatus');
     });
-    // Check permissions
-    // controller.hasPermissions().then((hasPermission) {
-    //   print('QRScanner: Camera permission: $hasPermission');
-    //   if (!hasPermission) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       const SnackBar(content: Text('Camera permission denied')),
-    //     );
-    //   }
-    // });
   }
 
   Future<Uint8List> _fetchPdf(String url) async {
-    print('URL : $url');
+    print('URL: $url');
     final response = await http.get(Uri.parse(url));
     print('Response Body: ${response.body}');
     if (response.statusCode == 200 &&
@@ -305,36 +317,30 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     for (int i = 0; i < cleanedLines.length; i++) {
       final line = cleanedLines[i].trim();
 
-      // Try two-line label detection:
       String? matchedLabel;
       String? initialValue;
 
-      // 1. Check if line has horizontal label:value pattern
       final horizontalMatch = RegExp(r'^(.+?)\s*[:;=]\s*(.*)$').firstMatch(line);
       if (horizontalMatch != null) {
         final possibleLabel = horizontalMatch.group(1)?.trim();
         matchedLabel = findMatchingLabel(possibleLabel ?? '');
         initialValue = horizontalMatch.group(2)?.trim();
       } else {
-        // 2. If no horizontal match, try single line label
         matchedLabel = findMatchingLabel(line);
 
-        // 3. If still no label and next line exists, try two-line label:
         if (matchedLabel == null && i + 1 < cleanedLines.length) {
           final combinedLabel = (line + ' ' + cleanedLines[i + 1].trim()).trim();
           matchedLabel = findMatchingLabel(combinedLabel);
           if (matchedLabel != null) {
-            i++; // consume next line as label line
+            i++;
           }
         }
       }
 
       if (matchedLabel != null) {
-        // Save previous label's buffered value
         if (currentLabel != null && fields[currentLabel] == null) {
           fields[currentLabel] = buffer.toString().trim();
         }
-        // Start new label & clear buffer
         currentLabel = matchedLabel;
         buffer.clear();
 
@@ -342,18 +348,15 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           buffer.write(initialValue);
         }
       } else if (currentLabel != null) {
-        // Append current line to current label's value buffer
         if (buffer.isNotEmpty) buffer.write(' ');
         buffer.write(line);
       }
     }
 
-    // Save last label's buffer
     if (currentLabel != null && fields[currentLabel] == null) {
       fields[currentLabel] = buffer.toString().trim();
     }
 
-    // Remove null or empty fields
     final finalFields = <String, String>{};
     fields.forEach((k, v) {
       if (v != null && v.trim().isNotEmpty) {
@@ -364,7 +367,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     return finalFields;
   }
 
-
   Future<ImageAnalysisResult> _extractTextFromImage(Uint8List imageBytes, int index) async {
     try {
       final image = img.decodePng(imageBytes);
@@ -372,12 +374,15 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         print('Image $index: Failed to decode image');
         final blankImage = img.Image(width: 100, height: 100);
         img.fillRect(blankImage, x1: 0, y1: 0, x2: 99, y2: 99, color: img.ColorRgb8(255, 255, 255));
-        return ImageAnalysisResult(text: 'Failed to decode image', profileImages: [
-          LabeledImage(
-            label: 'Blank Fallback Image',
-            image: img.encodePng(blankImage),
-          ),
-        ]);
+        return ImageAnalysisResult(
+          text: 'Failed to decode image',
+          profileImages: [
+            LabeledImage(
+              label: 'Blank Fallback Image',
+              image: img.encodePng(blankImage),
+            ),
+          ],
+        );
       }
 
       print('Image $index: Decoded image, width: ${image.width}, height: ${image.height}');
@@ -385,7 +390,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       List<LabeledImage> profileImages = [];
       const profileCropSize = 120;
 
-      // Extract only the first image at (345, 220)
       if (image.width >= profileCropSize && image.height >= profileCropSize) {
         final region = img.copyCrop(image, x: 345, y: 220, width: profileCropSize, height: profileCropSize);
         final regionStats = _computeRegionStats(region);
@@ -399,7 +403,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         }
       }
 
-      // Fallback if no image is found
       if (profileImages.isEmpty) {
         final blankImage = img.Image(width: 100, height: 100);
         img.fillRect(blankImage, x1: 0, y1: 0, x2: 99, y2: 99, color: img.ColorRgb8(255, 255, 255));
@@ -425,19 +428,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       print('Image $index text extraction error: $e');
       final blankImage = img.Image(width: 100, height: 100);
       img.fillRect(blankImage, x1: 0, y1: 0, x2: 99, y2: 99, color: img.ColorRgb8(255, 255, 255));
-      return ImageAnalysisResult(text: 'Error reading image: $e', profileImages: [
-        LabeledImage(
-          label: 'Error Fallback Image',
-          image: img.encodePng(blankImage),
-        ),
-      ]);
+      return ImageAnalysisResult(
+        text: 'Error reading image: $e',
+        profileImages: [
+          LabeledImage(
+            label: 'Error Fallback Image',
+            image: img.encodePng(blankImage),
+          ),
+        ],
+      );
     }
-  }
-
-  bool _rectsOverlap(Rect rect1, Rect rect2, int minDistance) {
-    final dx = (rect1.x - rect2.x).abs();
-    final dy = (rect1.y - rect2.y).abs();
-    return dx < rect1.width + minDistance && dy < rect1.height + minDistance;
   }
 
   RegionStats _computeRegionStats(img.Image region) {
@@ -471,12 +471,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     final rVariance = (r2Sum / count - rMean * rMean).abs();
     final gVariance = (g2Sum / count - gMean * gMean).abs();
     final bVariance = (b2Sum / count - bMean * bMean).abs();
-    final totalVariance = rVariance + gVariance + bVariance;
+    final isPhotoLike = rVariance > 1000 || gVariance > 1000 || bVariance > 1000;
 
-    final isPhotoLike = totalVariance > 300;
-    final isColorful = hasColor;
-
-    return RegionStats(isPhotoLike: isPhotoLike, isColorful: isColorful);
+    return RegionStats(isPhotoLike: isPhotoLike, isColorful: hasColor);
   }
 
   @override
@@ -484,48 +481,4 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     controller?.dispose();
     super.dispose();
   }
-}
-
-class ExtractedContent {
-  final String text;
-  final List<Uint8List> images;
-  final List<String> imageTexts;
-  final List<String> profileDetections;
-  final List<LabeledImage> profileImages;
-  final Map<String, String?> extractedFields;
-
-  ExtractedContent({
-    required this.text,
-    required this.images,
-    required this.imageTexts,
-    required this.profileDetections,
-    required this.profileImages,
-    required this.extractedFields,
-  });
-}
-
-class ImageAnalysisResult {
-  final String text;
-  final List<LabeledImage> profileImages;
-
-  ImageAnalysisResult({
-    required this.text,
-    required this.profileImages,
-  });
-}
-
-class RegionStats {
-  final bool isPhotoLike;
-  final bool isColorful;
-
-  RegionStats({required this.isPhotoLike, required this.isColorful});
-}
-
-class Rect {
-  final int x;
-  final int y;
-  final int width;
-  final int height;
-
-  Rect({required this.x, required this.y, required this.width, required this.height});
 }

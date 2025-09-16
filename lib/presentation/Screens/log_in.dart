@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../Common/Common/Config/Assets/app_images.dart';
-import '../../Common/Common/Config/Theme/app_colors.dart';
-import '../../Core/Core/Navigation/app_router.dart';
-import '../../Core/Core/Widgets/custom_textfield.dart';
+import '../../Common/Config/Assets/app_images.dart';
+import '../../Common/Config/Theme/app_colors.dart';
+import '../../Core/Navigation/app_router.dart';
+import '../../Core/Widgets/custom_textfield.dart';
 import 'dart:convert';
 
 class LoginPage extends StatefulWidget {

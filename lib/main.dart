@@ -1,13 +1,8 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:touch_attendence/Common/Common/Config/Theme/app_colors.dart';
-import 'package:touch_attendence/presentation/State%20Management/attendance_data_provider.dart';
-
-import 'Core/Core/Navigation/app_router.dart';
-
-import 'package:http/http.dart' as http;
+import 'Common/Config/Theme/app_colors.dart';
+import 'Core/Dependecy Injection/di.dart' as di;
+import 'Core/Navigation/app_router.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -19,6 +14,7 @@ class MyHttpOverrides extends HttpOverrides {
 
 void main() {
   HttpOverrides.global = MyHttpOverrides();
+  di.init(); // Initialize dependency injection
   runApp(const TouchAttendanceApp());
 }
 
@@ -27,18 +23,15 @@ class TouchAttendanceApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AttendanceDataProvider(),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Touch Attendance',
-        theme: ThemeData(
-          primaryColor: AppColors.primary,
-          useMaterial3: true,
-        ),
-        initialRoute: AppRoutes.splashScreen, // Set the initial route
-        onGenerateRoute: AppRoutes.generateRoute, // Use AppRoutes for navigation
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Touch Attendance',
+      theme: ThemeData(
+        primaryColor: AppColors.primary,
+        useMaterial3: true,
       ),
+      initialRoute: AppRoutes.splashScreen,
+      onGenerateRoute: AppRoutes.generateRoute,
     );
   }
 }
