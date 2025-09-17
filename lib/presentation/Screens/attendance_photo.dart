@@ -241,8 +241,12 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
                                             }
                                           }
 
+                                          Map<String, String?> filteredFields = isRegistered
+                                              ? {'Student ID': student.fields['Student ID'] ?? ''}
+                                              : student.fields;
+
                                           await sl<SubmitAttendance>().call(
-                                            student: student,
+                                            student: Student(fields: filteredFields, profileImages: student.profileImages),
                                             attendanceStatus: 'Yes',
                                             photo: isRegistered ? null : faceState.imageBytes,
                                             faceEmbedding: isRegistered ? null : faceState.embedding,

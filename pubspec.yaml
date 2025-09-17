@@ -56,6 +56,7 @@ dependencies:
   equatable:
   camera:
   tflite_flutter:
+  dartz:
 
 
 dependency_overrides:
