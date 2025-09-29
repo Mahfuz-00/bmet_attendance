@@ -54,7 +54,7 @@ dependencies:
   geolocator:
   flutter_bloc:
   equatable:
-  camera:
+  camera: ^0.11.2
   tflite_flutter:
   dartz:
 
@@ -73,6 +73,7 @@ dependency_overrides:
 #  shared_preferences_android: ^2.2.0
   flutter_plugin_android_lifecycle: ^2.0.28
   win32: ^5.1.1
+  camera_android_camerax: 0.6.17+1
 
 
 

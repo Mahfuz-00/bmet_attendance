@@ -30,16 +30,27 @@ final sl = GetIt.instance;
 
 Future<void> init() async {
   // Services
+  sl.registerLazySingleton(() => LoginApiService());
+  print('LoginApiService registered in di');
   sl.registerLazySingleton(() => RegistrationApiService());
   sl.registerLazySingleton(() => FaceEmbeddingApiService());
   sl.registerLazySingleton(() => AttendanceSubmissionApiService());
   sl.registerLazySingleton(() => FaceRecognitionService());
-  sl.registerLazySingleton(() => LoginApiService());
 
   // SharedPreferences
-  sl.registerSingletonAsync<SharedPreferences>(() => SharedPreferences.getInstance());
+  final prefs = await SharedPreferences.getInstance();
+  sl.registerSingleton<SharedPreferences>(prefs);
+  // sl.registerSingletonAsync<SharedPreferences>(() => SharedPreferences.getInstance());
+  print('SharedPreferences registered in di');
 
   // Repositories
+  sl.registerLazySingleton<AuthRepository>(
+        () => AuthRepositoryImpl(
+      apiService: sl(),
+      prefs: sl(),
+    ),
+  );
+  print('AuthRepository registered in di');
   sl.registerLazySingleton<AttendanceRepository>(
         () => AttendanceRepositoryImpl(
       registrationApiService: sl(),
@@ -55,30 +66,28 @@ Future<void> init() async {
   sl.registerLazySingleton<GeolocationRepository>(
         () => GeolocationRepositoryImpl(),
   );
-  sl.registerLazySingleton<AuthRepository>(
-        () => AuthRepositoryImpl(
-      apiService: sl(),
-      prefs: sl(),
-    ),
-  );
 
   // Use Cases
+  sl.registerLazySingleton(() => Login(sl()));
+  print('Login use case registered in di');
   sl.registerLazySingleton(() => CheckRegistration(sl()));
   sl.registerLazySingleton(() => FetchFaceEmbedding(sl()));
   sl.registerLazySingleton(() => SubmitAttendance(sl()));
   sl.registerLazySingleton(() => CaptureFace(sl()));
   sl.registerLazySingleton(() => VerifyFaceUseCase(sl()));
   sl.registerLazySingleton(() => GetLocation(sl()));
-  sl.registerLazySingleton(() => Login(sl()));
 
   // BLoCs
+  sl.registerFactory(() => LoginBloc(login: sl()));
+  print('LoginBloc registered in di');
   sl.registerFactory(() => AttendanceDataBloc());
+  print('AttendanceDataBloc registered in di');
   sl.registerFactory(() => RegistrationBloc(checkRegistration: sl()));
+  print('RegistrationBloc registered in di');
   sl.registerFactory(() => FaceRecognitionBloc(
     captureFace: sl(),
     fetchFaceEmbedding: sl(),
     verifyFace: sl<VerifyFaceUseCase>(),
   ));
   sl.registerFactory(() => GeolocationBloc(getLocation: sl()));
-  sl.registerFactory(() => LoginBloc(login: sl()));
 }

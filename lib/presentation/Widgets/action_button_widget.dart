@@ -7,6 +7,7 @@ class ActionButtonWidget extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
   final Color backgroundColor;
+  final double? width; // Added to allow customizable width
 
   const ActionButtonWidget({
     Key? key,
@@ -15,13 +16,14 @@ class ActionButtonWidget extends StatelessWidget {
     this.onPressed,
     this.isLoading = false,
     this.backgroundColor = AppColors.accent,
+    this.width, // Optional width parameter
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     return SizedBox(
-      width: screenWidth * 0.8,
+      width: width ?? screenWidth * 0.8, // Use provided width or default to 0.8
       child: ElevatedButton.icon(
         onPressed: isLoading ? null : onPressed,
         icon: isLoading

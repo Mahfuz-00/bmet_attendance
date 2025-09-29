@@ -25,7 +25,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
-          isLoggedIn ? AppRoutes.enrollmentImage : AppRoutes.login,
+          isLoggedIn ? AppRoutes.qrScanner : AppRoutes.login,
               (route) => false,
         );
       }

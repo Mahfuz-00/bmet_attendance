@@ -22,6 +22,10 @@ class AttendanceApiService {
       },
     ).timeout(const Duration(seconds: 10));
 
+    print('Status Code : ${response.statusCode}');
+    print('Body : ${response.body}');
+    print('URL : ${response.request}');
+
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
       return json['message'] ?? 'Not Register';

@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:math';
-import 'package:flutter/services.dart' show rootBundle;
 
 class FaceRecognitionService {
   Interpreter? _interpreter;
@@ -13,9 +12,7 @@ class FaceRecognitionService {
 
   Future<void> _loadModel() async {
     try {
-      // Load your TensorFlow Lite model (e.g., MobileFaceNet)
-      final model = await rootBundle.loadString('assets/models/facenet.tflite');
-      _interpreter = await Interpreter.fromAsset(model);
+      _interpreter = await Interpreter.fromAsset('assets/models/facenet.tflite');
       print('FaceRecognitionService: Model loaded successfully');
     } catch (e) {
       print('FaceRecognitionService: Error loading model: $e');
@@ -35,7 +32,7 @@ class FaceRecognitionService {
       throw Exception('Image too dark for face recognition');
     }
 
-    // Preprocess image (adjust based on your model's requirements)
+    // Preprocess image
     final inputImage = _preprocessImage(image);
 
     // Run inference
@@ -43,9 +40,8 @@ class FaceRecognitionService {
       throw Exception('Model not initialized');
     }
 
-    // Example input/output shapes (adjust based on your model)
-    var input = [inputImage]; // Shape: [1, height, width, 3]
-    var output = List.filled(1 * 128, 0.0).reshape([1, 128]); // Example: 128-dimensional embedding
+    var input = [inputImage]; // Shape: [1, 112, 112, 3]
+    var output = List.filled(1 * 128, 0.0).reshape([1, 128]); // 128-dimensional embedding
 
     _interpreter!.run(input, output);
 
@@ -57,13 +53,23 @@ class FaceRecognitionService {
       return false;
     }
 
-    // Euclidean distance
-    double distance = 0.0;
+    // Cosine similarity
+    double dotProduct = 0.0;
+    double norm1 = 0.0;
+    double norm2 = 0.0;
     for (int i = 0; i < embedding1.length; i++) {
-      distance += pow(embedding1[i] - embedding2[i], 2);
+      dotProduct += embedding1[i] * embedding2[i];
+      norm1 += embedding1[i] * embedding1[i];
+      norm2 += embedding2[i] * embedding2[i];
     }
-    distance = sqrt(distance);
-    return distance < 0.6; // Adjust threshold based on your model
+    norm1 = sqrt(norm1);
+    norm2 = sqrt(norm2);
+    if (norm1 == 0 || norm2 == 0) {
+      return false;
+    }
+    final similarity = dotProduct / (norm1 * norm2);
+    print('FaceRecognitionService: Cosine similarity: $similarity');
+    return similarity > 0.8; // Your specified threshold
   }
 
   double _computeBrightness(img.Image image) {
@@ -83,10 +89,7 @@ class FaceRecognitionService {
   }
 
   List<List<List<List<double>>>> _preprocessImage(img.Image image) {
-    // Resize to model input size (e.g., 112x112 for MobileFaceNet)
     final resized = img.copyResize(image, width: 112, height: 112);
-
-    // Normalize pixel values (adjust based on your model's requirements)
     final input = List.generate(
       1,
           (_) => List.generate(
@@ -97,14 +100,12 @@ class FaceRecognitionService {
             3,
                 (c) {
               final pixel = resized.getPixel(x, y);
-              // Normalize to [-1, 1] or [0, 1] based on model
               return (c == 0 ? pixel.r : c == 1 ? pixel.g : pixel.b) / 255.0;
             },
           ),
         ),
       ),
     );
-
     return input;
   }
 

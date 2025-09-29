@@ -50,6 +50,9 @@ class AttendanceSubmissionApiService {
     final response = await request.send().timeout(const Duration(seconds: 30));
     final responseBody = await response.stream.bytesToString();
 
+    print('Status Code : ${response.statusCode}');
+    print('URL : ${response.request}');
+
     if (response.statusCode == 200) {
       print('Attendance submitted successfully: $responseBody');
     } else if (response.statusCode == 401) {

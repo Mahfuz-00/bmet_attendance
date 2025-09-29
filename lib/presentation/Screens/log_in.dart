@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../Common/Config/Assets/app_images.dart';
 import '../../Common/Config/Theme/app_colors.dart';
+import '../../Core/Dependecy Injection/di.dart' as di;
 import '../../Core/Navigation/app_router.dart';
 import '../../Core/Widgets/custom_textfield.dart';
 import '../../Domain/Entities/login_request.dart';
@@ -28,7 +29,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => context.read<LoginBloc>(),
+      create: (_) => di.sl<LoginBloc>(),
       child: Scaffold(
         body: Center(
           child: SingleChildScrollView(

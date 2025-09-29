@@ -20,7 +20,12 @@ class RegistrationApiService {
       },
     ).timeout(const Duration(seconds: 10));
 
+    print('URL: ${response.request}');
+    print('Student ID: $studentId');
+    print('Status Code: ${response.statusCode}');
+
     if (response.statusCode == 200) {
+      print('Body: ${response.body}');
       final json = jsonDecode(response.body);
       return json['message'] ?? 'Not Register';
     } else if (response.statusCode == 401) {

@@ -20,6 +20,10 @@ class FaceEmbeddingApiService {
       },
     ).timeout(const Duration(seconds: 10));
 
+    print('Status Code : ${response.statusCode}');
+    print('Body : ${response.body}');
+    print('URL : ${response.request}');
+
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
       return List<double>.from(json['embedding']);

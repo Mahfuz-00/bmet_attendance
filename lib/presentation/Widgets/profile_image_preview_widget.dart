@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import '../../Common/Config/Theme/app_colors.dart';
 import '../../Data/Models/labeled_images.dart';
 
-class ProfileImageWidget extends StatelessWidget {
+class ProfileImagePreviewWidget extends StatelessWidget {
   final List<LabeledImage> profileImages;
   final double width;
 
-  const ProfileImageWidget({
+  const ProfileImagePreviewWidget({
     Key? key,
     required this.profileImages,
     required this.width,
@@ -16,7 +16,7 @@ class ProfileImageWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 16.0),
+        padding: const EdgeInsets.only(bottom: 16.0, top: 150),
         child: Column(
           children: [
             const Text(
