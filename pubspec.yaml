@@ -54,9 +54,11 @@ dependencies:
   geolocator:
   flutter_bloc:
   equatable:
-  camera: ^0.11.2
+  camera: ^0.10.5
   tflite_flutter:
   dartz:
+  google_mlkit_face_detection: ^0.11.0
+  synchronized:
 
 
 dependency_overrides:

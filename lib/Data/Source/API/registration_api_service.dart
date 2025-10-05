@@ -27,7 +27,21 @@ class RegistrationApiService {
     if (response.statusCode == 200) {
       print('Body: ${response.body}');
       final json = jsonDecode(response.body);
-      return json['message'] ?? 'Not Register';
+      final message = json['message'] ?? 'Not Register';
+      if (message == 'Student not found') {
+        return 'Not Register';
+      }
+      print(message);
+      return message;
+    } else if (response.statusCode == 400) {
+      print('Body: ${response.body}');
+      final json = jsonDecode(response.body);
+      final message = json['message'] ?? 'Not Register';
+      if (message == 'Student not found') {
+        return 'Not Register';
+      }
+      print(message);
+      return message;
     } else if (response.statusCode == 401) {
       throw Exception('Unauthorized: Please log in again');
     } else {

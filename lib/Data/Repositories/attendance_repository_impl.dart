@@ -33,6 +33,7 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
   }) async {
     try {
       final fields = student.fields.map((key, value) => MapEntry(key, value ?? ''));
+      final isRegistered = await checkRegistrationStatus(student.fields['Student ID'] ?? '');
       await attendanceSubmissionApiService.submitAttendance(
         fields: fields,
         attendanceStatus: attendanceStatus,
@@ -40,6 +41,7 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
         faceEmbedding: faceEmbedding,
         latitude: latitude,
         longitude: longitude,
+        isRegistered: isRegistered == 'Register',
       );
     } catch (e) {
       throw Exception('Failed to submit attendance: $e');

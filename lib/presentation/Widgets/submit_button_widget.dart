@@ -25,11 +25,9 @@ class SubmitButtonWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<FaceRecognitionBloc, FaceRecognitionState>(
       builder: (context, faceState) {
-        // Show submit button only if image is captured (and embedding fetched for registered students)
         if (faceState is! FaceRecognitionCaptured) {
           return const SizedBox.shrink();
         }
-        final storedEmbedding = faceState is FaceEmbeddingFetched ? faceState.storedEmbedding : null;
         return BlocBuilder<GeolocationBloc, GeolocationState>(
           builder: (context, geoState) {
             return ActionButtonWidget(
@@ -60,9 +58,9 @@ class SubmitButtonWidget extends StatelessWidget {
                       );
                       return;
                     }
-                    if (faceState is FaceRecognitionCaptured && storedEmbedding != null) {
+                    if (faceState.storedEmbedding != null) {
                       print('SubmitButtonWidget: Verifying face for studentId: $studentId');
-                      context.read<FaceRecognitionBloc>().add(VerifyFace(studentId, faceState.imageBytes, storedEmbedding));
+                      context.read<FaceRecognitionBloc>().add(VerifyFace(studentId, faceState.imageBytes, faceState.storedEmbedding!));
                       final faceVerifyState = await context
                           .read<FaceRecognitionBloc>()
                           .stream
@@ -76,6 +74,9 @@ class SubmitButtonWidget extends StatelessWidget {
                         return;
                       }
                       if (faceVerifyState is FaceRecognitionVerified && !faceVerifyState.isMatch) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Face does not match registered student')),
+                        );
                         return;
                       }
                     } else {
@@ -94,8 +95,8 @@ class SubmitButtonWidget extends StatelessWidget {
                   await sl<SubmitAttendance>().call(
                     student: Student(fields: filteredFields, profileImages: student.profileImages),
                     attendanceStatus: 'Yes',
-                    photo: isRegistered ? null : (faceState as FaceRecognitionCaptured).imageBytes,
-                    faceEmbedding: isRegistered ? null : (faceState as FaceRecognitionCaptured).embedding,
+                    photo: isRegistered ? null : faceState.imageBytes,
+                    faceEmbedding: isRegistered ? null : faceState.embedding,
                     latitude: position.latitude,
                     longitude: position.longitude,
                   );

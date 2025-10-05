@@ -1,132 +1,99 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:camera/camera.dart';
-import 'dart:io';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart';
 import 'dart:typed_data';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:path_provider/path_provider.dart';
-import '../../Presentation/Bloc/face_recognition_bloc.dart';
-import '../Widgets/action_button_widget.dart';
+import '../Bloc/face_recognition_bloc.dart';
+import '../Bloc/attendance_data_bloc.dart';
+import '../Bloc/registration_bloc.dart';
 
 class CaptureButtonWidget extends StatefulWidget {
-  final bool isRegistered;
+  final CameraController? controller;
+  final bool isProcessing;
+  final ValueNotifier<bool> isFaceProperNotifier;
+  final Function(Uint8List?) onCapture;
 
-  const CaptureButtonWidget({Key? key, required this.isRegistered}) : super(key: key);
+  const CaptureButtonWidget({
+    Key? key,
+    required this.controller,
+    required this.isProcessing,
+    required this.isFaceProperNotifier,
+    required this.onCapture,
+  }) : super(key: key);
 
   @override
   _CaptureButtonWidgetState createState() => _CaptureButtonWidgetState();
 }
 
 class _CaptureButtonWidgetState extends State<CaptureButtonWidget> {
-  CameraController? _cameraController;
-  List<CameraDescription>? _cameras;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeCamera();
-  }
-
-  Future<void> _initializeCamera() async {
-    try {
-      _cameras = await availableCameras();
-      if (_cameras != null && _cameras!.isNotEmpty) {
-        _cameraController = CameraController(
-          _cameras!.firstWhere((camera) => camera.lensDirection == CameraLensDirection.front),
-          ResolutionPreset.medium,
-        );
-        await _cameraController!.initialize();
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error initializing camera: $e')),
-      );
-    }
-  }
-
-  Future<Uint8List?> _compressImage(Uint8List imageBytes) async {
-    Uint8List compressedBytes = imageBytes;
-    int quality = 95;
-    const int maxSizeBytes = 100 * 1024;
-
-    print('Original face image size: ${compressedBytes.length / 1024} KB');
-
-    while (compressedBytes.length > maxSizeBytes && quality > 10) {
-      compressedBytes = await FlutterImageCompress.compressWithList(
-        imageBytes,
-        minWidth: 320,
-        minHeight: 320,
-        quality: quality,
-        format: CompressFormat.jpeg,
-      );
-      quality -= 10;
-      print('Compressed face image size: ${compressedBytes.length / 1024} KB, quality: $quality');
-    }
-
-    if (compressedBytes.length > maxSizeBytes) {
-      print('Warning: Could not compress face image below 100KB');
-      return null;
-    }
-
-    return compressedBytes;
-  }
-
-  Future<Uint8List?> _captureFace() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Camera not initialized')),
-      );
-      return null;
-    }
-
-    try {
-      final image = await _cameraController!.takePicture();
-      final bytes = await File(image.path).readAsBytes();
-      final compressedBytes = await _compressImage(bytes);
-      if (compressedBytes == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to compress face image below 100KB')),
-        );
-        return null;
-      }
-
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/face_image.jpg');
-      await tempFile.writeAsBytes(compressedBytes);
-
-      return compressedBytes;
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error capturing face: $e')),
-      );
-      return null;
-    }
-  }
-
-  @override
-  void dispose() {
-    _cameraController?.dispose();
-    super.dispose();
-  }
+  bool _isCapturing = false;
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<FaceRecognitionBloc, FaceRecognitionState>(
-      builder: (context, faceState) {
-        final isLoading = faceState is FaceRecognitionLoading;
-        final hasFace = faceState is FaceRecognitionCaptured;
-        return ActionButtonWidget(
-          label: hasFace
-              ? 'Retake Face'
-              : (widget.isRegistered ? 'Take Attendance' : 'Capture Face for Registration'),
-          icon: Icons.camera_alt,
-          isLoading: isLoading,
-          onPressed: () async {
-            final faceImage = await _captureFace();
-            if (faceImage != null) {
-              context.read<FaceRecognitionBloc>().add(CaptureFaceImage(faceImage));
-            }
-          },
+    return ValueListenableBuilder<bool>(
+      valueListenable: widget.isFaceProperNotifier,
+      builder: (context, isFaceProper, _) {
+        final isEnabled = !widget.isProcessing &&
+            !_isCapturing &&
+            isFaceProper &&
+            widget.controller != null &&
+            widget.controller!.value.isInitialized;
+        print(
+            'CaptureButtonWidget: isEnabled=$isEnabled, isProcessing=${widget.isProcessing}, isCapturing=$_isCapturing, isFaceProper=$isFaceProper, controllerInitialized=${widget.controller?.value.isInitialized}');
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 30),
+              ),
+              onPressed: isEnabled
+                  ? () async {
+                if (_isCapturing) return;
+                setState(() {
+                  _isCapturing = true;
+                });
+                try {
+                  print('CaptureButtonWidget: Starting capture');
+                  await widget.controller!.setFocusPoint(const Offset(0.5, 0.5));
+                  await widget.controller!.setFocusMode(FocusMode.locked);
+                  final shot = await widget.controller!.takePicture();
+                  final bytes = await shot.readAsBytes();
+                  await widget.controller!.setFocusMode(FocusMode.auto);
+                  print('CaptureButtonWidget: Captured image of size: ${bytes.length} bytes');
+                  widget.onCapture(bytes);
+                  final regState = context.read<RegistrationBloc>().state;
+                  final dataState = context.read<AttendanceDataBloc>().state;
+                  final isRegistered = regState is RegistrationLoaded && regState.status == 'Register';
+                  final studentId = dataState is AttendanceDataLoaded ? dataState.student.fields['Student ID'] : null;
+                  context.read<FaceRecognitionBloc>().add(CaptureFaceImage(
+                    bytes,
+                    isRegistered: isRegistered,
+                    studentId: studentId,
+                  ));
+                } catch (e) {
+                  print('CaptureButtonWidget: Capture error: $e');
+                  widget.onCapture(null);
+                  // Do not show snackbar here; handle in parent widget
+                } finally {
+                  if (mounted) {
+                    setState(() {
+                      _isCapturing = false;
+                    });
+                  }
+                  print('CaptureButtonWidget: Capture state reset, isCapturing=$_isCapturing');
+                }
+              }
+                  : null,
+              child: const Text('Capture'),
+            ),
+            if (_isCapturing)
+              const Positioned.fill(
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+          ],
         );
       },
     );

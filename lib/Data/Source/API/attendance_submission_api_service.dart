@@ -14,6 +14,7 @@ class AttendanceSubmissionApiService {
     List<double>? faceEmbedding,
     required double latitude,
     required double longitude,
+    required bool isRegistered, // Added to determine request_type
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final authToken = prefs.getString('auth_token');
@@ -26,6 +27,11 @@ class AttendanceSubmissionApiService {
       Uri.parse('$_baseUrl/user/attendance'),
     );
 
+    print("Fields: $fields");
+    print("Attendance Status: $attendanceStatus");
+    print("Latitude: $latitude");
+    print("Longitude$longitude");
+    print("Register Type: $isRegistered");
     request.headers['Authorization'] = 'Bearer $authToken';
     request.headers['Content-Type'] = 'multipart/form-data';
 
@@ -33,6 +39,10 @@ class AttendanceSubmissionApiService {
     request.fields['attendance_status'] = attendanceStatus;
     request.fields['latitude'] = latitude.toString();
     request.fields['longitude'] = longitude.toString();
+    request.fields['request_type'] = isRegistered ? 'attendance' : 'registration';
+
+
+    print("Photo : $photo");
 
     if (photo != null) {
       request.files.add(http.MultipartFile.fromBytes(
@@ -43,6 +53,8 @@ class AttendanceSubmissionApiService {
       ));
     }
 
+    print("Face Embedding $faceEmbedding");
+
     if (faceEmbedding != null) {
       request.fields['face_embedding'] = jsonEncode(faceEmbedding);
     }
@@ -50,8 +62,9 @@ class AttendanceSubmissionApiService {
     final response = await request.send().timeout(const Duration(seconds: 30));
     final responseBody = await response.stream.bytesToString();
 
-    print('Status Code : ${response.statusCode}');
-    print('URL : ${response.request}');
+    print('Status Code: ${response.statusCode}');
+    print('URL: ${response.request}');
+    print('Response Body: $responseBody');
 
     if (response.statusCode == 200) {
       print('Attendance submitted successfully: $responseBody');
