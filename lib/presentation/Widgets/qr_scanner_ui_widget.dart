@@ -7,12 +7,16 @@ class QRScannerUI extends StatefulWidget {
   final bool isProcessing;
   final Function(String) onQRScanned;
   final VoidCallback onLogout;
+  /// Called by the child to give the parent a resume-camera callback.
+  /// Parent receives a `VoidCallback` it can call to resume the camera.
+  final ValueChanged<VoidCallback> onScannerCreated;
 
   const QRScannerUI({
     Key? key,
     required this.isProcessing,
     required this.onQRScanned,
     required this.onLogout,
+    required this.onScannerCreated,
   }) : super(key: key);
 
   @override
@@ -90,6 +94,17 @@ class _QRScannerUIState extends State<QRScannerUI> {
 
   void _onQRViewCreated(QRViewController controller) {
     this.controller = controller;
+
+    // Register a resume callback with the parent. Parent can call this to resume the camera.
+    widget.onScannerCreated(() async {
+      try {
+        await this.controller?.resumeCamera();
+      } catch (e) {
+        // optional: log
+        print('QRScannerUI: resumeCamera error: $e');
+      }
+    });
+
     controller.scannedDataStream.listen((scanData) async {
       await controller.pauseCamera();
       try {
@@ -115,6 +130,11 @@ class _QRScannerUIState extends State<QRScannerUI> {
       print('QRScannerUI: Flash status: $flashStatus');
     });
   }
+
+  void resumeScanner() async {
+    await controller?.resumeCamera();
+  }
+
 
   @override
   void dispose() {

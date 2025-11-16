@@ -57,6 +57,7 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
         final String status = await checkRegistration(event.studentId);
         emit(RegistrationLoaded(status));
       } catch (e) {
+        print('Register Bloc Error: $e');
         emit(RegistrationError(e.toString()));
       }
     });

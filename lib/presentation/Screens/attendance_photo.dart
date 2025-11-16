@@ -100,7 +100,7 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
       }
       _controller = CameraController(
         backCamera,
-        ResolutionPreset.low, // Further reduced resolution
+        ResolutionPreset.medium, // Further reduced resolution
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
@@ -210,10 +210,10 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
         print('AttendancePhotoScreen: Failed to decode image for size check');
         return false;
       }
-      final targetWidth = 320; // Further reduced resolution
+      final targetWidth = 240; // Further reduced resolution
       final targetHeight = (decoded.height * targetWidth / decoded.width).round();
       final preResized = img.copyResize(decoded, width: targetWidth, height: targetHeight);
-      final preResizedBytes = img.encodeJpg(preResized, quality: 70); // Lower quality
+      final preResizedBytes = img.encodeJpg(preResized, quality: 50); // Lower quality
       final tempFile = File('${Directory.systemTemp.path}/tmp_face_check_${DateTime.now().millisecondsSinceEpoch}.jpg');
       await tempFile.writeAsBytes(preResizedBytes);
       final inputImage = InputImage.fromFilePath(tempFile.path);
@@ -449,7 +449,7 @@ class _AttendancePhotoScreenState extends State<AttendancePhotoScreen> {
                               isProcessing: _isProcessing,
                               isFaceProperNotifier: _isFaceProperNotifier,
                               onCapture: (bytes) {
-                                if (bytes != null) {
+                                if (bytes != null && _isFaceProperNotifier.value) {
                                   _pauseFaceSizeCheck();
                                   final studentId = student.fields['Student ID'];
                                   try {

@@ -43,49 +43,53 @@ class _CaptureButtonWidgetState extends State<CaptureButtonWidget> {
         return Stack(
           alignment: Alignment.center,
           children: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(0, 30),
-              ),
-              onPressed: isEnabled
-                  ? () async {
-                if (_isCapturing) return;
-                setState(() {
-                  _isCapturing = true;
-                });
-                try {
-                  print('CaptureButtonWidget: Starting capture');
-                  await widget.controller!.setFocusPoint(const Offset(0.5, 0.5));
-                  await widget.controller!.setFocusMode(FocusMode.locked);
-                  final shot = await widget.controller!.takePicture();
-                  final bytes = await shot.readAsBytes();
-                  await widget.controller!.setFocusMode(FocusMode.auto);
-                  print('CaptureButtonWidget: Captured image of size: ${bytes.length} bytes');
-                  widget.onCapture(bytes);
-                  final regState = context.read<RegistrationBloc>().state;
-                  final dataState = context.read<AttendanceDataBloc>().state;
-                  final isRegistered = regState is RegistrationLoaded && regState.status == 'Register';
-                  final studentId = dataState is AttendanceDataLoaded ? dataState.student.fields['Student ID'] : null;
-                  context.read<FaceRecognitionBloc>().add(CaptureFaceImage(
-                    bytes,
-                    isRegistered: isRegistered,
-                    studentId: studentId,
-                  ));
-                } catch (e) {
-                  print('CaptureButtonWidget: Capture error: $e');
-                  widget.onCapture(null);
-                  // Do not show snackbar here; handle in parent widget
-                } finally {
-                  if (mounted) {
-                    setState(() {
-                      _isCapturing = false;
-                    });
+            SizedBox(
+              width: 160,  // fixed width
+              height: 80, // fixed height
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                ),
+                onPressed: isEnabled
+                    ? () async {
+                  if (_isCapturing) return;
+                  setState(() {
+                    _isCapturing = true;
+                  });
+                  try {
+                    print('CaptureButtonWidget: Starting capture');
+                    await widget.controller!.setFocusPoint(const Offset(0.5, 0.5));
+                    await widget.controller!.setFocusMode(FocusMode.locked);
+                    final shot = await widget.controller!.takePicture();
+                    final bytes = await shot.readAsBytes();
+                    await widget.controller!.setFocusMode(FocusMode.auto);
+                    print('CaptureButtonWidget: Captured image of size: ${bytes.length} bytes');
+                    widget.onCapture(bytes);
+                    final regState = context.read<RegistrationBloc>().state;
+                    final dataState = context.read<AttendanceDataBloc>().state;
+                    final isRegistered = regState is RegistrationLoaded && regState.status == 'Register';
+                    final studentId = dataState is AttendanceDataLoaded ? dataState.student.fields['Student ID'] : null;
+                    context.read<FaceRecognitionBloc>().add(CaptureFaceImage(
+                      bytes,
+                      isRegistered: isRegistered,
+                      studentId: studentId,
+                    ));
+                  } catch (e) {
+                    print('CaptureButtonWidget: Capture error: $e');
+                    widget.onCapture(null);
+                    // Do not show snackbar here; handle in parent widget
+                  } finally {
+                    if (mounted) {
+                      setState(() {
+                        _isCapturing = false;
+                      });
+                    }
+                    print('CaptureButtonWidget: Capture state reset, isCapturing=$_isCapturing');
                   }
-                  print('CaptureButtonWidget: Capture state reset, isCapturing=$_isCapturing');
                 }
-              }
-                  : null,
-              child: const Text('Capture'),
+                    : null,
+                child: const Text('Capture'),
+              ),
             ),
             if (_isCapturing)
               const Positioned.fill(

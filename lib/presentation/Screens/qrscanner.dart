@@ -17,6 +17,9 @@ class QRScannerScreen extends StatefulWidget {
 class _QRScannerScreenState extends State<QRScannerScreen> {
   bool isProcessing = false;
 
+  /// The child will register a resume callback here.
+  VoidCallback? _resumeCamera;
+
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<AttendanceDataBloc>();
@@ -53,6 +56,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: $e')),
           );
+          // Resume camera so user can scan again
+          _resumeCamera?.call();
         } finally {
           setState(() {
             isProcessing = false;
@@ -68,6 +73,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           AppRoutes.login,
               (route) => false,
         );
+      },
+      onScannerCreated: (resumeCallback) {
+        // Child gives us a resume function (which resumes the internal controller).
+        _resumeCamera = resumeCallback;
       },
     );
   }

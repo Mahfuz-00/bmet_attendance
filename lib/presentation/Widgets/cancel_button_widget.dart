@@ -6,19 +6,23 @@ class CancelButtonWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(0, 100), // Match height: 30
-        backgroundColor: Colors.red,
+    return SizedBox(
+      width: 160,  // fixed width
+      height: 80, // fixed height
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor: Colors.red,
+        ),
+        onPressed: () {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.qrScanner,
+                (route) => false,
+          );
+        },
+        child: const Text('Cancel'),
       ),
-      onPressed: () {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.qrScanner,
-              (route) => false,
-        );
-      },
-      child: const Text('Cancel'),
     );
   }
 }
