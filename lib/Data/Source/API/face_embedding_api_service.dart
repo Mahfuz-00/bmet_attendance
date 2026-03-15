@@ -26,7 +26,10 @@ class FaceEmbeddingApiService {
 
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
-      return List<double>.from(json['embedding']);
+      final String raw = json['embedding']; // string
+      final List<dynamic> list = jsonDecode(raw); // convert to List
+
+      return list.map((e) => (e as num).toDouble()).toList();
     } else {
       throw Exception('Failed to fetch face embedding: ${response.body}');
     }

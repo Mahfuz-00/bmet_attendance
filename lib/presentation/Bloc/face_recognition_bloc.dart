@@ -93,6 +93,7 @@ class FaceRecognitionBloc extends Bloc<FaceRecognitionEvent, FaceRecognitionStat
       try {
         print('FaceRecognitionBloc: Fetching embedding for studentId: ${event.studentId}');
         final embedding = await fetchFaceEmbedding(event.studentId);
+        print('Embedding Length: ${embedding.length}');
         if (embedding.isEmpty || embedding.length != 512) {
           print('FaceRecognitionBloc: Invalid fetched embedding, length: ${embedding.length}');
           throw Exception('Invalid face embedding: length=${embedding.length}');
@@ -122,7 +123,7 @@ class FaceRecognitionBloc extends Bloc<FaceRecognitionEvent, FaceRecognitionStat
             throw Exception('Stored embedding not found');
           }
           print('FaceRecognitionBloc: Verifying face for registered studentId: ${event.studentId}');
-          final isMatch = await verifyFace(event.studentId!, event.imageBytes);
+          final isMatch = await verifyFace(event.studentId!, event.imageBytes, _storedEmbedding!);
           print('FaceRecognitionBloc: Verification result: $isMatch');
           emit(FaceRecognitionCaptured(
             event.imageBytes,
@@ -152,7 +153,7 @@ class FaceRecognitionBloc extends Bloc<FaceRecognitionEvent, FaceRecognitionStat
       emit(FaceRecognitionLoading());
       try {
         print('FaceRecognitionBloc: Verifying face for studentId: ${event.studentId}');
-        final isMatch = await verifyFace(event.studentId, event.imageBytes);
+        final isMatch = await verifyFace(event.studentId, event.imageBytes, _storedEmbedding!);
         print('FaceRecognitionBloc: Verification result: $isMatch');
         emit(FaceRecognitionVerified(isMatch));
       } catch (e, stackTrace) {

@@ -14,31 +14,30 @@ class FaceRecognitionRepositoryImpl implements FaceRecognitionRepository {
     required this.faceEmbeddingApiService,
   });
 
-  @override
   Future<List<double>> captureFace(Uint8List imageBytes) async {
     final result = await service.extractFaceEmbedding(imageBytes);
-    if (result.isSuccessful && result.embedding != null) {
-      print('FaceRecognitionRepositoryImpl: Embedding captured successfully');
-      return result.embedding!;
-    } else if (result.errorMessage == 'Processing queued, please wait') {
-      print('FaceRecognitionRepositoryImpl: Processing queued');
-      // Re-try until processing completes
-      while (true) {
-        final retryResult = await service.extractFaceEmbedding(imageBytes);
-        if (retryResult.isSuccessful && retryResult.embedding != null) {
-          print('FaceRecognitionRepositoryImpl: Queued embedding captured successfully');
-          return retryResult.embedding!;
-        } else if (retryResult.errorMessage != 'Processing queued, please wait') {
-          print('FaceRecognitionRepositoryImpl: Failed to capture embedding: ${retryResult.errorMessage}');
-          throw Exception(retryResult.errorMessage ?? 'Failed to capture face embedding');
-        }
-        await Future.delayed(const Duration(milliseconds: 100));
+
+    // If processing is queued, just wait a bit and check again, but only once
+    if (result.errorMessage == 'Processing queued, please wait') {
+      print('Processing queued, waiting 1s...');
+      await Future.delayed(const Duration(seconds: 1));
+      final retryResult = await service.extractFaceEmbedding(imageBytes);
+      if (retryResult.isSuccessful && retryResult.embedding != null) {
+        return retryResult.embedding!;
+      } else {
+        throw Exception(retryResult.errorMessage ?? 'Failed to capture embedding after queued wait');
       }
-    } else {
-      print('FaceRecognitionRepositoryImpl: Failed to capture embedding: ${result.errorMessage}');
-      throw Exception(result.errorMessage ?? 'Failed to capture face embedding');
     }
+
+    if (result.isSuccessful && result.embedding != null) {
+      return result.embedding!;
+    }
+
+    throw Exception(result.errorMessage ?? 'Failed to capture face embedding');
   }
+
+
+
 
   @override
   Future<List<double>> fetchFaceEmbedding(String studentId) async {
@@ -50,11 +49,17 @@ class FaceRecognitionRepositoryImpl implements FaceRecognitionRepository {
   }
 
   @override
-  Future<bool> verifyFace(String studentId, Uint8List imageBytes) async {
+  Future<bool> verifyFace(String studentId, Uint8List imageBytes, List<double> storedEmbedding) async {
     try {
       final capturedEmbedding = await captureFace(imageBytes);
-      final storedEmbedding = await fetchFaceEmbedding(studentId);
-      return await service.compareFaces(capturedEmbedding, storedEmbedding);
+      print('Captured Embedding: $capturedEmbedding');
+      if (storedEmbedding == null) {
+        throw Exception('No stored embedding for $studentId');
+      }
+      print('Stored Embedding: $storedEmbedding');
+      final result = await service.compareFaces(capturedEmbedding, storedEmbedding);
+      print('Comparison result: $result');
+      return result;
     } catch (e) {
       throw Exception('Failed to verify face: $e');
     }

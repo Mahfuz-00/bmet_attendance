@@ -6,7 +6,7 @@ class VerifyFaceUseCase {
 
   VerifyFaceUseCase(this.repository);
 
-  Future<bool> call(String studentId, Uint8List imageBytes) async {
-    return await repository.verifyFace(studentId, imageBytes);
+  Future<bool> call(String studentId, Uint8List imageBytes, List<double> storedEmbedding) async {
+    return await repository.verifyFace(studentId, imageBytes, storedEmbedding);
   }
 }
